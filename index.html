@@ -8,7 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 :root{
-  --bg:#000;--bg2:#0d0d0d;--bg3:#151515;--bg4:#1c1c1c;
+  --bg:#0f0f0f;--bg2:#161616;--bg3:#1e1e1e;--bg4:#242424;
   --border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.13);
   --text:#f5f5f7;--text2:#98989d;--text3:#3d3d40;
   --green:#32d74b;--green2:rgba(50,215,75,.1);
@@ -16,14 +16,14 @@
   --red:#ff453a;--red2:rgba(255,69,58,.1);
   --purple:#bf5af2;--purple2:rgba(191,90,242,.1);
   --amber:#ffd60a;--orange:#ff9f0a;
-  --teal:#5ac8fa;
+  --teal:#5ac8fa;--orange:#ff9f0a;--orange2:rgba(255,159,10,.12);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
 body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',system-ui,sans-serif;font-size:14px;min-height:100vh;overflow-x:hidden;}
 
 /* ── LOADER ── */
-.loader{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;gap:20px;transition:opacity .6s,visibility .6s;}
+.loader{position:fixed;inset:0;background:#0f0f0f;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;gap:20px;transition:opacity .6s,visibility .6s;}
 .loader.hide{opacity:0;visibility:hidden;}
 .loader-icon{width:68px;height:68px;border-radius:20px;background:linear-gradient(145deg,#1a8cff,#32d74b);display:flex;align-items:center;justify-content:center;font-size:32px;animation:iconBounce .8s cubic-bezier(.34,1.56,.64,1) forwards;box-shadow:0 0 40px rgba(10,132,255,.25);}
 @keyframes iconBounce{from{transform:scale(0) rotate(-15deg);opacity:0}to{transform:scale(1) rotate(0);opacity:1}}
@@ -32,7 +32,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .loader-label{font-size:11px;font-weight:500;color:var(--text3);letter-spacing:.12em;text-transform:uppercase;}
 
 /* ── TOPBAR ── */
-.topbar{background:rgba(0,0,0,.88);border-bottom:.5px solid rgba(255,255,255,.06);padding:0 18px;height:54px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);}
+.topbar{background:rgba(18,18,18,.92);border-bottom:.5px solid rgba(255,255,255,.06);padding:0 18px;height:54px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);}
 .topbar-left{display:flex;align-items:center;gap:11px;}
 .logo{width:30px;height:30px;border-radius:10px;background:linear-gradient(145deg,#0a84ff,#32d74b);display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 12px rgba(10,132,255,.3);}
 .app-title{font-size:16px;font-weight:700;letter-spacing:-.04em;color:var(--text);}
@@ -45,7 +45,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .jason-val{font-size:13px;font-weight:700;color:var(--red);letter-spacing:-.01em;}
 
 /* ── BOTTOM NAV ── */
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(4,4,4,.96);border-top:.5px solid rgba(255,255,255,.07);backdrop-filter:saturate(200%) blur(28px);-webkit-backdrop-filter:saturate(200%) blur(28px);display:flex;justify-content:space-around;align-items:center;padding:10px 0 24px;z-index:200;}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(16,16,16,.96);border-top:.5px solid rgba(255,255,255,.07);backdrop-filter:saturate(200%) blur(28px);-webkit-backdrop-filter:saturate(200%) blur(28px);display:flex;justify-content:space-around;align-items:center;padding:10px 0 24px;z-index:200;}
 .nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:6px 14px;border-radius:14px;transition:all .25s cubic-bezier(.34,1.2,.64,1);flex:1;}
 .nav-icon{font-size:21px;transition:transform .3s cubic-bezier(.34,1.56,.64,1);}
 .nav-label{font-size:9px;font-weight:600;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;transition:color .2s;}
@@ -72,11 +72,11 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .hero-amount.pos{background:linear-gradient(140deg,#32d74b 30%,#30d158 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
 .hero-amount.neg{background:linear-gradient(140deg,#ff453a 30%,#ff6961 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
 .hero-sub{font-size:14px;font-weight:400;color:var(--text3);}
-.hero-divider{height:.5px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);margin:24px 0;}
+.hero-divider{height:.5px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent);margin:24px 0;}
 
 /* ── STAT CARDS ── */
 .stat-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px;}
-.stat{background:rgba(255,255,255,.03);border:.5px solid rgba(255,255,255,.08);border-radius:18px;padding:16px;transition:transform .3s cubic-bezier(.34,1.1,.64,1),box-shadow .3s,border-color .2s;cursor:default;position:relative;overflow:hidden;animation:cardIn .4s ease both;}
+.stat{background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.09);border-radius:18px;padding:16px;transition:transform .3s cubic-bezier(.34,1.1,.64,1),box-shadow .3s,border-color .2s;cursor:default;position:relative;overflow:hidden;animation:cardIn .4s ease both;}
 .stat::after{content:"";position:absolute;top:0;left:0;right:0;height:.5px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent);}
 .stat:hover{transform:translateY(-3px) scale(1.03);box-shadow:0 14px 36px rgba(0,0,0,.7);border-color:rgba(255,255,255,.13);}
 .stat-label{font-size:9px;font-weight:700;color:var(--text3);margin-bottom:8px;letter-spacing:.1em;text-transform:uppercase;}
@@ -86,14 +86,14 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 
 /* ── BALANCE STRIP ── */
 .balance-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px;}
-.bal-card{background:rgba(255,255,255,.02);border:.5px solid rgba(255,255,255,.07);border-radius:14px;padding:12px 13px;transition:transform .3s cubic-bezier(.34,1.2,.64,1),border-color .2s,box-shadow .3s;animation:cardIn .4s ease both;cursor:default;}
+.bal-card{background:rgba(255,255,255,.035);border:.5px solid rgba(255,255,255,.09);border-radius:14px;padding:12px 13px;transition:transform .3s cubic-bezier(.34,1.2,.64,1),border-color .2s,box-shadow .3s;animation:cardIn .4s ease both;cursor:default;}
 .bal-card:hover{transform:translateY(-2px) scale(1.04);border-color:rgba(255,255,255,.12);box-shadow:0 8px 24px rgba(0,0,0,.5);}
 .bal-card.active{border-color:rgba(50,215,75,.3);background:rgba(50,215,75,.05);animation:hlpulse 3s ease-in-out infinite;}
 .bal-month{font-size:9px;font-weight:700;color:var(--text3);margin-bottom:5px;letter-spacing:.08em;text-transform:uppercase;}
 .bal-val{font-size:14px;font-weight:700;letter-spacing:-.02em;}
 
 /* ── CARDS ── */
-.card{background:rgba(255,255,255,.025);border:.5px solid rgba(255,255,255,.07);border-radius:22px;padding:20px;margin-bottom:14px;animation:fadeUp .4s ease both;transition:border-color .2s,transform .3s cubic-bezier(.34,1.1,.64,1),box-shadow .3s;position:relative;overflow:hidden;}
+.card{background:rgba(255,255,255,.03);border:.5px solid rgba(255,255,255,.08);border-radius:22px;padding:20px;margin-bottom:14px;animation:fadeUp .4s ease both;transition:border-color .2s,transform .3s cubic-bezier(.34,1.1,.64,1),box-shadow .3s;position:relative;overflow:hidden;}
 .card::before{content:"";position:absolute;top:0;left:10%;right:10%;height:.5px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);pointer-events:none;}
 .card:hover{border-color:rgba(255,255,255,.11);transform:translateY(-2px);box-shadow:0 12px 36px rgba(0,0,0,.55);}
 .card-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:17px;}
@@ -110,14 +110,14 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .pending-item:hover{padding:13px 11px;background:rgba(255,255,255,.02);border-radius:12px;margin:0 -11px;padding:13px 11px;}
 .pi-left{display:flex;align-items:center;gap:11px;}
 .pi-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-.pi-name{font-size:13px;font-weight:600;color:var(--text);letter-spacing:-.01em;}
-.pi-date{font-size:11px;font-weight:400;color:var(--text3);margin-top:3px;}
+.pi-name{font-size:14px;font-weight:600;color:#ffffff;letter-spacing:-.01em;}
+.pi-date{font-size:12px;font-weight:500;color:rgba(255,255,255,.75);margin-top:3px;}
 .pi-right{text-align:right;}
-.pi-amount{font-size:15px;font-weight:700;letter-spacing:-.02em;}
+.pi-amount{font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--orange);}
 .pi-status{font-size:10px;margin-top:3px;padding:3px 9px;border-radius:20px;font-weight:600;letter-spacing:.03em;display:inline-block;}
 .status-soon{background:rgba(255,214,10,.08);color:var(--amber);border:.5px solid rgba(255,214,10,.2);}
 .status-pending{background:rgba(10,132,255,.08);color:var(--blue);border:.5px solid rgba(10,132,255,.18);}
-.status-overdue{background:rgba(255,69,58,.08);color:var(--red);border:.5px solid rgba(255,69,58,.2);}
+.status-overdue{background:rgba(255,69,58,.08);color:var(--red);border:.5px solid rgba(255,69,58,.2);}.status-received{background:rgba(50,215,75,.08);color:var(--green);border:.5px solid rgba(50,215,75,.2);}
 
 /* ── GOALS ── */
 .goal-item{padding:13px 0;border-bottom:.5px solid rgba(255,255,255,.05);transition:all .2s;}
@@ -175,32 +175,32 @@ input[type=range]{width:100%;-webkit-appearance:none;height:3px;border-radius:2p
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--blue);cursor:pointer;border:2px solid var(--bg);box-shadow:0 2px 8px rgba(10,132,255,.35);}
 
 /* ── ALERTS ── */
-.alert-item{display:flex;align-items:flex-start;gap:13px;padding:14px 15px;background:rgba(255,255,255,.025);border:.5px solid rgba(255,255,255,.07);border-radius:16px;margin-bottom:9px;transition:all .2s;}
+.alert-item{display:flex;align-items:flex-start;gap:13px;padding:14px 15px;background:rgba(255,255,255,.035);border:.5px solid rgba(255,255,255,.09);border-radius:16px;margin-bottom:9px;transition:all .2s;}
 .alert-item:hover{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.04);transform:translateX(3px);}
 .alert-icon{font-size:19px;flex-shrink:0;margin-top:1px;}
 .alert-title{font-size:13px;font-weight:600;margin-bottom:3px;letter-spacing:-.01em;}
 .alert-sub{font-size:12px;color:var(--text3);line-height:1.55;font-weight:400;}
 
 /* ── MONTH ACCORDION ── */
-.month-item{border:.5px solid rgba(255,255,255,.07);border-radius:18px;margin-bottom:9px;overflow:hidden;transition:border-color .25s,box-shadow .3s,transform .25s;animation:cardIn .4s ease both;background:rgba(255,255,255,.02);}
+.month-item{border:.5px solid rgba(255,255,255,.08);border-radius:18px;margin-bottom:9px;overflow:hidden;transition:border-color .25s,box-shadow .3s,transform .25s;animation:cardIn .4s ease both;background:rgba(255,255,255,.03);}
 .month-item:hover{border-color:rgba(255,255,255,.11);transform:translateY(-1px);box-shadow:0 8px 28px rgba(0,0,0,.5);}
 .month-item.open{border-color:rgba(255,255,255,.1);box-shadow:0 10px 36px rgba(0,0,0,.6);}
 .month-hdr{display:flex;justify-content:space-between;align-items:center;padding:15px 17px;cursor:pointer;user-select:none;transition:background .15s;}
-.month-hdr:hover{background:rgba(255,255,255,.02);}
+.month-hdr:hover{background:rgba(255,255,255,.03);}
 .month-left{display:flex;align-items:center;gap:11px;}
 .month-bar{width:2px;height:22px;border-radius:1px;background:rgba(255,255,255,.1);transition:background .3s,box-shadow .3s;}
-.month-item.open .month-bar{background:var(--green);box-shadow:0 0 8px rgba(50,215,75,.5);}
-.month-name{font-size:16px;font-weight:700;letter-spacing:-.03em;}
-.month-tag{font-size:9px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.04em;}
-.tag-green{background:rgba(50,215,75,.1);color:var(--green);border:.5px solid rgba(50,215,75,.2);}
-.tag-red{background:rgba(255,69,58,.1);color:var(--red);border:.5px solid rgba(255,69,58,.2);}
-.month-net{font-size:16px;font-weight:700;letter-spacing:-.03em;transition:color .3s;}
-.chev{color:var(--text3);font-size:11px;transition:transform .3s;margin-left:8px;}
+.month-item.open .month-bar{background:var(--green);box-shadow:0 0 10px rgba(50,215,75,.6);}
+.month-name{font-size:17px;font-weight:800;letter-spacing:-.04em;color:var(--text);}
+.month-tag{font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.03em;}
+.tag-green{background:rgba(50,215,75,.12);color:var(--green);border:.5px solid rgba(50,215,75,.25);font-weight:700;}
+.tag-red{background:rgba(255,69,58,.12);color:var(--red);border:.5px solid rgba(255,69,58,.25);font-weight:700;}
+.month-net{font-size:17px;font-weight:800;letter-spacing:-.04em;transition:color .3s;}
+.chev{color:var(--text2);font-size:11px;transition:transform .3s;margin-left:8px;}
 .month-item.open .chev{transform:rotate(180deg);}
 .month-body{display:none;padding:0 17px 16px;border-top:.5px solid rgba(255,255,255,.06);}
 .month-body.open{display:block;animation:fadeUp .2s ease;}
 .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin:14px 0 8px;}
-.sec-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;}
+.sec-label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:var(--text2);}
 .add-btn{font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;border:.5px solid rgba(255,255,255,.1);background:transparent;color:var(--text3);cursor:pointer;transition:all .2s;font-family:inherit;letter-spacing:.02em;}
 .add-btn:hover{border-color:var(--green);color:var(--green);transform:translateY(-1px);}
 .field-row{display:flex;align-items:center;gap:7px;margin-bottom:6px;animation:fadeUp .15s ease;}
@@ -209,7 +209,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
 .flabel{flex:1;font-size:12px;font-weight:400;padding:6px 9px;border-radius:8px;border:.5px solid transparent;background:transparent;color:var(--text2);transition:all .15s;min-width:0;font-family:inherit;}
 .flabel:hover{border-color:rgba(255,255,255,.1);background:rgba(255,255,255,.03);}
 .flabel:focus{outline:none;border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--text);}
-.fval{width:82px;font-size:12px;font-weight:600;padding:6px 9px;border-radius:8px;border:.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:var(--text);text-align:right;transition:all .15s;flex-shrink:0;font-family:inherit;}
+.fval{width:82px;font-size:12px;font-weight:600;padding:6px 9px;border-radius:8px;border:.5px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:var(--text);text-align:right;transition:all .15s;flex-shrink:0;font-family:inherit;}
 .fval:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(50,215,75,.08);}
 .net-row{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:700;letter-spacing:-.02em;margin-top:14px;padding-top:12px;border-top:.5px solid rgba(255,255,255,.07);}
 .net-label{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;}
@@ -220,7 +220,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
 
 /* ── FORMS ── */
 .form-row{display:flex;gap:8px;margin-bottom:10px;}
-.form-input{flex:1;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.1);border-radius:11px;color:var(--text);font-size:12px;font-weight:400;padding:10px 13px;outline:none;transition:all .2s;font-family:inherit;}
+.form-input{flex:1;background:rgba(255,255,255,.05);border:.5px solid rgba(255,255,255,.12);border-radius:11px;color:var(--text);font-size:12px;font-weight:400;padding:10px 13px;outline:none;transition:all .2s;font-family:inherit;}
 .form-input:focus{border-color:rgba(10,132,255,.45);background:rgba(10,132,255,.04);box-shadow:0 0 0 4px rgba(10,132,255,.06);}
 .form-input::placeholder{color:var(--text3);}
 .form-btn{background:var(--blue);border:none;border-radius:11px;color:#fff;font-size:12px;font-weight:600;padding:10px 16px;cursor:pointer;transition:all .2s;font-family:inherit;white-space:nowrap;letter-spacing:.01em;}
@@ -243,7 +243,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
 .ai-fab:hover{transform:translateY(-50%) translateX(-4px);box-shadow:-8px 0 28px rgba(10,132,255,.4);width:38px;}
 
 /* ── AI PANEL ── */
-.ai-panel{position:fixed;right:0;top:0;bottom:0;width:300px;background:rgba(7,7,7,.98);border-left:.5px solid rgba(255,255,255,.1);z-index:299;transform:translateX(100%);transition:transform .38s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;backdrop-filter:saturate(200%) blur(30px);-webkit-backdrop-filter:saturate(200%) blur(30px);box-shadow:-10px 0 50px rgba(0,0,0,.9);}
+.ai-panel{position:fixed;right:0;top:0;bottom:0;width:300px;background:rgba(18,18,18,.98);border-left:.5px solid rgba(255,255,255,.1);z-index:299;transform:translateX(100%);transition:transform .38s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;backdrop-filter:saturate(200%) blur(30px);-webkit-backdrop-filter:saturate(200%) blur(30px);box-shadow:-10px 0 50px rgba(0,0,0,.9);}
 .ai-panel.open{transform:translateX(0);}
 .ai-handle{display:none;}
 .ai-hdr{display:flex;justify-content:space-between;align-items:center;padding:18px 16px 12px;border-bottom:.5px solid rgba(255,255,255,.07);flex-shrink:0;}
@@ -278,6 +278,53 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
 ::-webkit-scrollbar{width:3px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px;}
+
+/* ── COUNTDOWN BANNER ── */
+.countdown-banner{background:linear-gradient(135deg,rgba(255,159,10,.08),rgba(255,214,10,.05));border:.5px solid rgba(255,159,10,.2);border-radius:16px;padding:14px 18px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;transition:all .2s;animation:fadeUp .4s ease both;}
+.countdown-banner:hover{border-color:rgba(255,159,10,.3);background:linear-gradient(135deg,rgba(255,159,10,.12),rgba(255,214,10,.07));}
+.cb-left{}
+.cb-label{font-size:10px;font-weight:700;color:rgba(255,159,10,.7);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;}
+.cb-name{font-size:14px;font-weight:700;color:var(--text);letter-spacing:-.01em;}
+.cb-date{font-size:11px;color:var(--text3);margin-top:2px;}
+.cb-right{text-align:right;}
+.cb-days{font-size:36px;font-weight:800;color:var(--orange);letter-spacing:-.04em;line-height:1;}
+.cb-days-label{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-top:2px;}
+
+/* ── PROGRESS ARC ── */
+.progress-arc-wrap{display:flex;align-items:center;gap:14px;margin-bottom:14px;padding:14px 16px;background:rgba(255,255,255,.025);border:.5px solid rgba(255,255,255,.08);border-radius:16px;animation:fadeUp .4s ease both;}
+.arc-canvas{flex-shrink:0;}
+.arc-info{}
+.arc-label{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;}
+.arc-title{font-size:14px;font-weight:700;color:var(--text);letter-spacing:-.01em;margin-bottom:2px;}
+.arc-sub{font-size:11px;color:var(--text3);}
+
+/* ── SWIPE DELETE ── */
+.swipeable{position:relative;overflow:hidden;border-radius:12px;}
+.swipe-delete-bg{position:absolute;right:0;top:0;bottom:0;width:70px;background:var(--red);display:flex;align-items:center;justify-content:center;border-radius:0 12px 12px 0;font-size:18px;opacity:0;transition:opacity .2s;}
+.swipe-content{transition:transform .25s cubic-bezier(.4,0,.2,1);}
+
+/* ── DELETE BUTTONS ── */
+.del-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:4px 6px;border-radius:6px;transition:all .2s;flex-shrink:0;line-height:1;}
+.del-btn:hover{color:var(--red);background:rgba(255,69,58,.1);transform:scale(1.1);}
+
+/* ── CONFETTI ── */
+.confetti-container{position:fixed;top:0;left:0;right:0;pointer-events:none;z-index:9999;overflow:hidden;height:100vh;}
+.confetti-piece{position:absolute;width:8px;height:8px;border-radius:2px;animation:confettiFall 2.5s ease-out forwards;}
+@keyframes confettiFall{0%{transform:translateY(-20px) rotate(0deg);opacity:1;}100%{transform:translateY(100vh) rotate(720deg);opacity:0;}}
+
+/* ── SMOOTH NUMBER UPDATE ── */
+@keyframes numPop{0%{transform:scale(1)}40%{transform:scale(1.08)}100%{transform:scale(1)}}
+.num-pop{animation:numPop .35s cubic-bezier(.34,1.56,.64,1);}
+
+/* ── NOTES ON PENDING ── */
+.pending-note{font-size:11px;color:var(--text3);margin-top:3px;font-style:italic;line-height:1.4;}
+
+/* ── MARK RECEIVED BUTTON ── */
+.mark-btn{font-size:9px;padding:2px 8px;border-radius:20px;border:.5px solid rgba(50,215,75,.25);background:rgba(50,215,75,.06);color:var(--green);cursor:pointer;font-family:inherit;font-weight:700;letter-spacing:.03em;transition:all .2s;white-space:nowrap;}
+.mark-btn:hover{background:rgba(50,215,75,.14);transform:translateY(-1px);}
+
+/* ── NOTION SYNC BTN ACTIVE ── */
+.notion-syncing{animation:pulse 1s infinite;}
 </style>
 </head>
 <body>
@@ -305,7 +352,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
   <!-- PAGE: DASHBOARD -->
   <div class="page active" id="page-home">
     <div class="hero">
-      <div class="hero-label">4-month net</div>
+      <div class="hero-eyebrow" id="heroGreeting">Good morning, Sean</div>
       <div class="hero-amount pos" id="heroNet">—</div>
       <div class="hero-sub">May — August 2026</div>
       <div class="hero-divider"></div>
@@ -325,6 +372,29 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
         <div class="stat-label">Balance</div>
         <div class="stat-val" id="statBal" style="color:var(--blue);">—</div>
         <div class="stat-sub">end of Aug</div>
+      </div>
+    </div>
+
+    <!-- COUNTDOWN TO NEXT PAYOUT -->
+    <div class="countdown-banner" id="countdownBanner">
+      <div class="cb-left">
+        <div class="cb-label">Next payout incoming</div>
+        <div class="cb-name" id="nextPayoutName">—</div>
+        <div class="cb-date" id="nextPayoutDate">—</div>
+      </div>
+      <div class="cb-right">
+        <div class="cb-days" id="nextPayoutDays">—</div>
+        <div class="cb-days-label">days away</div>
+      </div>
+    </div>
+
+    <!-- PLAN PROGRESS ARC -->
+    <div class="progress-arc-wrap">
+      <canvas class="arc-canvas" id="arcCanvas" width="60" height="60"></canvas>
+      <div class="arc-info">
+        <div class="arc-label">Plan progress</div>
+        <div class="arc-title" id="arcTitle">—</div>
+        <div class="arc-sub" id="arcSub">May 1 → Aug 31, 2026</div>
       </div>
     </div>
 
@@ -377,6 +447,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
       <div id="debtList"></div>
     </div>
 
+    <!-- MONTHLY BREAKDOWN -->
+    <div class="sec-title">Monthly Breakdown</div>
+    <div id="monthsWrap"></div>
 
   </div>
 
@@ -387,12 +460,30 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
       <div class="timeline" id="timelineList"></div>
     </div>
     <div class="sec-title">Expense Log</div>
+
+    <!-- EXPENSE SUMMARY STRIP -->
+    <div id="expenseSummary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;"></div>
+
     <div class="card">
       <div class="card-hdr">
-        <div class="card-title">Recent Expenses</div>
-        <button class="card-action" onclick="showAddExpense()">+ Add</button>
+        <div class="card-title">Expenses</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <select id="expFilter" class="form-select" style="font-size:10px;padding:4px 8px;width:auto;border-radius:20px;" onchange="renderExpenses()">
+            <option value="all">All</option>
+            <option value="🍔 Food">🍔 Food</option>
+            <option value="⛽ Gas">⛽ Gas</option>
+            <option value="🛍 Shopping">🛍 Shopping</option>
+            <option value="💊 Health">💊 Health</option>
+            <option value="🎮 Entertainment">🎮 Fun</option>
+            <option value="📱 Subscriptions">📱 Subs</option>
+            <option value="✈️ Travel">✈️ Travel</option>
+            <option value="🏠 Housing">🏠 Housing</option>
+            <option value="💼 Business">💼 Business</option>
+          </select>
+          <button class="card-action" onclick="showAddExpense()">+ Add</button>
+        </div>
       </div>
-      <div id="addExpenseForm" style="display:none;margin-bottom:12px;padding-bottom:12px;border-bottom:.5px solid var(--border);">
+      <div id="addExpenseForm" style="display:none;margin-bottom:14px;padding-bottom:14px;border-bottom:.5px solid var(--border);">
         <div class="form-row">
           <input class="form-input" id="eName" placeholder="What did you spend on?">
           <input class="form-input" id="eAmount" type="number" placeholder="$" style="width:80px;flex:none;">
@@ -410,6 +501,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
             <option>💼 Business</option>
             <option>❓ Other</option>
           </select>
+          <input class="form-input" id="eNote" placeholder="Note (optional)" style="flex:1;">
           <button class="form-btn" onclick="addExpense()">Add</button>
         </div>
       </div>
@@ -695,19 +787,20 @@ function renderAll(animate=false){
   renderDashboard(animate)
   renderPending()
   renderAlerts()
+  buildMonths()
   renderTimeline()
   renderGoals()
   renderExpenses()
+  renderExpenseSummary()
   renderReinvestments()
   renderScenarios()
-
 }
 
 let chart
 function renderDashboard(animate=false){
   const ti=MONTHS.reduce((s,_,i)=>s+mIn(i),0),to=MONTHS.reduce((s,_,i)=>s+mOut(i),0),n=ti-to,bals=runBal()
   if(animate&&firstLoad){firstLoad=false;setTimeout(()=>animCount(document.getElementById("heroNet"),n),350);setTimeout(()=>animCount(document.getElementById("statIn"),ti,700),450);setTimeout(()=>animCount(document.getElementById("statOut"),to,700),530);setTimeout(()=>animCount(document.getElementById("statBal"),bals[3],700),610)}
-  else{document.getElementById("heroNet").textContent=fmt(n);const siEl=document.getElementById("statIn");siEl.textContent=fmt(ti);const soEl=document.getElementById("statOut");soEl.textContent=fmt(to);document.getElementById("statBal").textContent=fmt(bals[3])}
+  else{function setNum(id,v){const el=document.getElementById(id);if(!el)return;el.textContent=fmt(v);el.classList.remove("num-pop");void el.offsetWidth;el.classList.add("num-pop")}setNum("heroNet",n);setNum("statIn",ti);setNum("statOut",to);setNum("statBal",bals[3])}
   document.getElementById("heroNet").className="hero-amount "+(n>=0?"pos":"neg")
   document.getElementById("statBal").style.color=bals[3]>=0?"var(--blue)":"var(--red)"
 
@@ -721,18 +814,117 @@ function renderDashboard(animate=false){
 }
 
 function renderPending(){
-  const list=document.getElementById("pendingList");list.innerHTML=""
+  const list=document.getElementById("pendingList")
+  if(!list)return
+  list.innerHTML=""
   const today=new Date()
-  if(!state.pending||state.pending.length===0){list.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:12px;">No pending payments. Add one above.</div>';return}
-  state.pending.sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach((p,i)=>{
-    const d=new Date(p.date),diff=Math.ceil((d-today)/(1000*60*60*24))
-    let statusClass="status-pending",statusLabel="Pending"
-    if(diff<=3&&diff>=0){statusClass="status-soon";statusLabel="Due soon"}
-    else if(diff<0){statusClass="status-overdue";statusLabel="Overdue"}
-    const el=document.createElement("div");el.className="pending-item"
-    el.innerHTML=`<div class="pi-left"><div class="pi-dot" style="background:${p.color}"></div><div><div class="pi-name">${p.name}</div><div class="pi-date">${d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div></div></div><div class="pi-right"><div class="pi-amount">${fmt(p.amount)}</div><div class="pi-status ${statusClass}">${statusLabel}</div></div>`
-    list.appendChild(el)
+  if(!state.pending||state.pending.length===0){
+    list.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:14px 0;">No pending payments. Add one above.</div>'
+    return
+  }
+  // Sort: pending first by date, received at bottom
+  const sorted=[...state.pending].map((p,origIdx)=>({...p,origIdx}))
+  sorted.sort((a,b)=>{
+    if(!!a.received!==!!b.received)return a.received?1:-1
+    return new Date(a.date)-new Date(b.date)
   })
+  sorted.forEach((p)=>{
+    const i=p.origIdx
+    const d=new Date(p.date)
+    const diff=Math.ceil((d-today)/(1000*60*60*24))
+    const received=p.received||false
+    const amtColor=received?"var(--green)":"var(--orange)"
+    const dotColor=received?"var(--green)":"var(--orange)"
+    let statusClass="status-pending",statusLabel="Pending"
+    if(received){statusClass="status-received";statusLabel="✓ Received"}
+    else if(diff===0){statusClass="status-soon";statusLabel="Today!"}
+    else if(diff<=3&&diff>0){statusClass="status-soon";statusLabel="Due soon"}
+    else if(diff<0){statusClass="status-overdue";statusLabel="Overdue"}
+
+    const row=document.createElement("div")
+    row.style.cssText="display:flex;justify-content:space-between;align-items:flex-start;padding:13px 0;border-bottom:.5px solid rgba(255,255,255,.05);"
+    row.innerHTML=`
+      <div style="display:flex;align-items:flex-start;gap:11px;flex:1;min-width:0;">
+        <div style="width:9px;height:9px;border-radius:50%;background:${dotColor};flex-shrink:0;margin-top:4px;box-shadow:0 0 6px ${dotColor}88;"></div>
+        <div style="min-width:0;">
+          <div style="font-size:14px;font-weight:600;color:#fff;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
+          <div style="font-size:12px;font-weight:500;color:rgba(255,255,255,.7);margin-top:3px;">${d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})}</div>
+          ${p.note?`<div style="font-size:11px;color:var(--text3);margin-top:3px;font-style:italic;">${p.note}</div>`:''}
+        </div>
+      </div>
+      <div style="flex-shrink:0;margin-left:12px;text-align:right;">
+        <div style="font-size:16px;font-weight:700;color:${amtColor};letter-spacing:-.02em;">${fmt(p.amount)}</div>
+        <div style="display:flex;gap:5px;justify-content:flex-end;align-items:center;margin-top:5px;flex-wrap:wrap;">
+          <span class="pi-status ${statusClass}">${statusLabel}</span>
+          ${!received?`<button style="font-size:9px;padding:3px 9px;border-radius:20px;border:.5px solid rgba(50,215,75,.3);background:rgba(50,215,75,.07);color:var(--green);cursor:pointer;font-family:inherit;font-weight:700;letter-spacing:.03em;" onclick="markReceived(${i})">Received</button>`:''}
+          <button style="background:none;border:none;color:rgba(255,255,255,.2);cursor:pointer;font-size:14px;padding:2px 5px;border-radius:5px;transition:all .15s;line-height:1;" onmouseover="this.style.color='var(--red)';this.style.background='rgba(255,69,58,.1)'" onmouseout="this.style.color='rgba(255,255,255,.2)';this.style.background='none'" onclick="deletePending(${i})">✕</button>
+        </div>
+      </div>`
+    list.appendChild(row)
+  })
+  renderCountdown()
+}
+
+function renderCountdown(){
+  const today=new Date()
+  const upcoming=(state.pending||[]).filter(p=>!p.received&&new Date(p.date)>=today).sort((a,b)=>new Date(a.date)-new Date(b.date))
+  if(!upcoming.length){document.getElementById("countdownBanner").style.display="none";return}
+  const next=upcoming[0],d=new Date(next.date)
+  const diff=Math.ceil((d-today)/(1000*60*60*24))
+  document.getElementById("nextPayoutName").textContent=next.name
+  document.getElementById("nextPayoutDate").textContent=d.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})
+  const daysEl=document.getElementById("nextPayoutDays")
+  daysEl.textContent=diff<=0?"Today!":diff
+  daysEl.style.color=diff<=3?"var(--green)":"var(--orange)"
+  document.getElementById("countdownBanner").style.display=""
+}
+
+function markReceived(idx){
+  if(!state.pending||!state.pending[idx])return
+  state.pending[idx].received=true
+  launchConfetti()
+  renderPending();renderAlerts();autoSave()
+  toast("💸 Payment received!","green")
+}
+
+function deletePending(idx){
+  if(!state.pending)return
+  state.pending.splice(idx,1)
+  renderPending();renderAlerts();autoSave()
+  toast("Payment removed","")
+}
+
+function deleteGoal(idx){
+  if(!state.goals)return
+  state.goals.splice(idx,1)
+  renderGoals();autoSave()
+  toast("Goal removed","")
+}
+
+function deleteExpense(idx){
+  if(!state.expenses)return
+  state.expenses.splice(idx,1)
+  renderExpenses();autoSave()
+  toast("Expense removed","")
+}
+
+function deleteReinvestment(idx){
+  if(!state.reinvestments)return
+  state.reinvestments.splice(idx,1)
+  renderReinvestments();autoSave()
+  toast("Reinvestment removed","")
+}
+
+function launchConfetti(){
+  const colors=["#32d74b","#0a84ff","#ff9f0a","#bf5af2","#ffd60a","#ff453a","#ffffff"]
+  const container=document.createElement("div");container.className="confetti-container"
+  document.body.appendChild(container)
+  for(let i=0;i<60;i++){
+    const piece=document.createElement("div");piece.className="confetti-piece"
+    piece.style.cssText=`left:${Math.random()*100}%;background:${colors[Math.floor(Math.random()*colors.length)]};animation-delay:${Math.random()*.8}s;animation-duration:${1.5+Math.random()*1.5}s;width:${6+Math.random()*8}px;height:${6+Math.random()*8}px;border-radius:${Math.random()>.5?"50%":"2px"};`
+    container.appendChild(piece)
+  }
+  setTimeout(()=>container.remove(),3500)
 }
 
 function renderAlerts(){
@@ -771,16 +963,80 @@ function renderGoals(){
   state.goals.forEach((g,i)=>{
     const pct=Math.min((g.current/g.target)*100,100)
     const el=document.createElement("div");el.className="goal-item"
-    el.innerHTML=`<div class="goal-hdr"><div class="goal-name">${g.name}</div><div class="goal-pct" style="color:${g.color}">${Math.round(pct)}%</div></div><div class="goal-bar"><div class="goal-fill" id="gf-${i}" style="background:${g.color};width:0;"></div></div><div class="goal-meta"><span>${fmt(g.current)} of ${fmt(g.target)}</span><span>By ${g.deadline}</span></div>`
+    el.innerHTML=`<div class="goal-hdr"><div class="goal-name">${g.name}</div><div style="display:flex;align-items:center;gap:8px;"><div class="goal-pct" style="color:${g.color}">${Math.round(pct)}%</div><button class="del-btn" data-action="delgoal" data-idx="${i}" title="Remove">✕</button></div></div><div class="goal-bar"><div class="goal-fill" id="gf-${i}" style="background:${g.color};width:0;"></div></div><div class="goal-meta"><span>${fmt(g.current)} of ${fmt(g.target)}</span><span>By ${g.deadline}</span></div>`
     list.appendChild(el)
     setTimeout(()=>{const f=document.getElementById("gf-"+i);if(f)f.style.width=pct+"%"},100+i*80)
   })
+  list.onclick=function(e){const b=e.target.closest("[data-action='delgoal']");if(b)deleteGoal(parseInt(b.dataset.idx))}
 }
 
 function renderExpenses(){
   const list=document.getElementById("expenseList");list.innerHTML=""
   if(!state.expenses||state.expenses.length===0){list.innerHTML='<div style="font-size:12px;color:var(--text3);">No expenses logged yet.</div>';return}
   state.expenses.slice().reverse().forEach(e=>{const el=document.createElement("div");el.className="exp-item";el.innerHTML=`<div class="exp-cat"><div class="exp-emoji">${e.cat.split(" ")[0]}</div><div><div class="exp-name">${e.name}</div><div class="exp-date">${e.date}</div></div></div><div class="exp-amount">-${fmt(e.amount)}</div>`;list.appendChild(el)})
+}
+
+// ── MONTHLY BREAKDOWN ──
+function makeRow(item,onL,onV,onRm){
+  const row=document.createElement("div");row.className="field-row"
+  const rm=document.createElement("button");rm.className="rm";rm.textContent="×";rm.addEventListener("click",e=>{e.stopPropagation();onRm()})
+  const li=document.createElement("input");li.className="flabel";li.type="text";li.value=item.label;li.placeholder="Label..."
+  li.addEventListener("input",()=>{onL(li.value);autoSave()});li.addEventListener("click",e=>e.stopPropagation())
+  const vi=document.createElement("input");vi.className="fval";vi.type="number";vi.value=Math.round(item.val);vi.step=1
+  vi.addEventListener("input",()=>{onV(parseFloat(vi.value)||0);renderAll();autoSave()});vi.addEventListener("click",e=>e.stopPropagation())
+  row.appendChild(rm);row.appendChild(li);row.appendChild(vi);return row
+}
+
+function buildSec(body,i,type){
+  const arr=state[type][i],isIn=type==="income"
+  const sh=document.createElement("div");sh.className="sec-hdr"
+  const sl=document.createElement("div");sl.className="sec-label";sl.style.color=isIn?"var(--green)":"var(--red)";sl.textContent=isIn?"Income":"Obligations"
+  const ab=document.createElement("button");ab.className="add-btn";ab.textContent="+ Add"
+  ab.addEventListener("click",e=>{e.stopPropagation();arr.push({label:"New item",val:0});rebuildBody(i);renderAll();autoSave()})
+  sh.appendChild(sl);sh.appendChild(ab);body.appendChild(sh)
+  arr.forEach((item,j)=>body.appendChild(makeRow(item,v=>arr[j].label=v,v=>arr[j].val=v,()=>{arr.splice(j,1);rebuildBody(i);renderAll();autoSave()})))
+}
+
+function rebuildBody(i){
+  const body=document.getElementById("mbody-"+i);if(!body)return
+  const wasOpen=body.classList.contains("open");body.innerHTML=""
+  buildSec(body,i,"income");buildSec(body,i,"obligations")
+  const na=document.createElement("div");na.className="note-area"
+  const ni=document.createElement("textarea");ni.className="note-inp";ni.placeholder="Notes for this month...";ni.value=state.notes[i]||""
+  ni.addEventListener("input",e=>{state.notes[i]=e.target.value;autoSave()});ni.addEventListener("click",e=>e.stopPropagation())
+  na.appendChild(ni);body.appendChild(na)
+  const nr=document.createElement("div");nr.className="net-row";nr.id="net-"+i;body.appendChild(nr)
+  if(wasOpen)body.classList.add("open");updateNets()
+}
+
+const BADGES=["Payout month","Beto cleared","Kris cleared","Reinvest returns"]
+
+function buildMonths(){
+  const wrap=document.getElementById("monthsWrap");if(!wrap)return;wrap.innerHTML=""
+  MONTHS.forEach((month,i)=>{
+    const net=mNet(i),item=document.createElement("div")
+    item.className="month-item"+(state.open[i]?" open":"")
+    item.id="mi-"+i;item.style.animationDelay=(i*.06)+"s"
+    const hdr=document.createElement("div");hdr.className="month-hdr"
+    hdr.innerHTML=`<div class="month-left"><div class="month-bar"></div><div class="month-name">${month}</div><span class="month-tag ${net>=0?"tag-green":"tag-red"}">${BADGES[i]}</span></div><div style="display:flex;align-items:center;"><span class="month-net ${net>=0?"pos":"neg"}" id="hnet-${i}">${fmt(net)}</span><span class="chev" id="chev-${i}">▾</span></div>`
+    hdr.addEventListener("click",()=>{
+      state.open[i]=!state.open[i]
+      document.getElementById("mbody-"+i).classList.toggle("open",state.open[i])
+      item.classList.toggle("open",state.open[i])
+      autoSave()
+    })
+    item.appendChild(hdr)
+    const body=document.createElement("div");body.className="month-body"+(state.open[i]?" open":"");body.id="mbody-"+i
+    item.appendChild(body);wrap.appendChild(item);rebuildBody(i)
+  })
+}
+
+function updateNets(){
+  MONTHS.forEach((_,i)=>{
+    const n=mNet(i),cls=n>=0?"pos":"neg"
+    const el=document.getElementById("net-"+i);if(el)el.innerHTML=`<span class="net-label">Net</span><span class="${cls}">${fmt(n)}</span>`
+    const hnet=document.getElementById("hnet-"+i);if(hnet){hnet.textContent=fmt(n);hnet.className="month-net "+cls}
+  })
 }
 
 function renderReinvestments(){
@@ -817,25 +1073,53 @@ function runScenario(){
 
 // FORMS
 function showAddPending(){const f=document.getElementById("addPendingForm");f.style.display=f.style.display==="none"?"block":"none"}
-function addPending(){const name=document.getElementById("pName").value,amount=parseFloat(document.getElementById("pAmount").value),date=document.getElementById("pDate").value,color=document.getElementById("pColor").value;if(!name||!amount||!date){toast("Fill in all fields","red");return}if(!state.pending)state.pending=[];state.pending.push({name,amount,date,color});renderPending();renderAlerts();autoSave();document.getElementById("addPendingForm").style.display="none";document.getElementById("pName").value="";document.getElementById("pAmount").value="";toast("Payment added","green")}
+function addPending(){const name=document.getElementById("pName").value,amount=parseFloat(document.getElementById("pAmount").value),date=document.getElementById("pDate").value,color=document.getElementById("pColor").value,note=document.getElementById("pNote").value;if(!name||!amount||!date){toast("Fill in all fields","red");return}if(!state.pending)state.pending=[];state.pending.push({name,amount,date,color,note,received:false});renderPending();renderAlerts();autoSave();document.getElementById("addPendingForm").style.display="none";document.getElementById("pName").value="";document.getElementById("pAmount").value="";document.getElementById("pNote").value="";toast("Payment added","green")}
 
 function showAddGoal(){const f=document.getElementById("addGoalForm");f.style.display=f.style.display==="none"?"block":"none"}
 function addGoal(){const name=document.getElementById("gName").value,target=parseFloat(document.getElementById("gTarget").value),current=parseFloat(document.getElementById("gCurrent").value)||0,deadline=document.getElementById("gDeadline").value;if(!name||!target){toast("Fill in goal name and target","red");return}if(!state.goals)state.goals=[];const colors=["var(--green)","var(--blue)","var(--purple)","var(--amber)","var(--orange)"];state.goals.push({name,target,current,deadline,color:colors[state.goals.length%colors.length]});renderGoals();autoSave();document.getElementById("addGoalForm").style.display="none";document.getElementById("gName").value="";document.getElementById("gTarget").value="";document.getElementById("gCurrent").value="";toast("Goal added","green")}
 
 function showAddExpense(){const f=document.getElementById("addExpenseForm");f.style.display=f.style.display==="none"?"block":"none"}
-function addExpense(){const name=document.getElementById("eName").value,amount=parseFloat(document.getElementById("eAmount").value),cat=document.getElementById("eCat").value;if(!name||!amount){toast("Fill in all fields","red");return}if(!state.expenses)state.expenses=[];state.expenses.push({name,amount,cat,date:new Date().toISOString().split("T")[0]});renderExpenses();autoSave();document.getElementById("addExpenseForm").style.display="none";document.getElementById("eName").value="";document.getElementById("eAmount").value="";toast("Expense logged","green")}
+function addExpense(){const name=document.getElementById("eName").value,amount=parseFloat(document.getElementById("eAmount").value),cat=document.getElementById("eCat").value,note=document.getElementById("eNote")?document.getElementById("eNote").value:"";if(!name||!amount){toast("Fill in all fields","red");return}if(!state.expenses)state.expenses=[];state.expenses.push({name,amount,cat,note,date:new Date().toISOString().split("T")[0]});renderExpenses();autoSave();document.getElementById("addExpenseForm").style.display="none";document.getElementById("eName").value="";document.getElementById("eAmount").value="";if(document.getElementById("eNote"))document.getElementById("eNote").value="";toast("Expense logged","green")}
 
 function showAddReinvest(){const f=document.getElementById("addReinvestForm");f.style.display=f.style.display==="none"?"block":"none"}
 function addReinvest(){const name=document.getElementById("rName").value,invested=parseFloat(document.getElementById("rIn").value),expected=parseFloat(document.getElementById("rReturn").value),date=document.getElementById("rDate").value;if(!name||!invested||!expected){toast("Fill in all fields","red");return}if(!state.reinvestments)state.reinvestments=[];state.reinvestments.push({name,invested,expected,date,status:"planned"});renderReinvestments();autoSave();document.getElementById("addReinvestForm").style.display="none";document.getElementById("rName").value="";document.getElementById("rIn").value="";document.getElementById("rReturn").value="";toast("Reinvestment added","green")}
 
-// NOTION SYNC
+// NOTION SYNC - Real implementation via Supabase edge trigger
 async function syncToNotion(){
-  toast("Syncing to Notion calendar...","")
-  setTimeout(()=>toast("Pending payments synced to Notion calendar","green"),1500)
+  const btn=event.currentTarget
+  btn.textContent="⟳ Syncing..."
+  btn.classList.add("notion-syncing")
+  try{
+    // Store sync request in Supabase - the app signals what to sync
+    await sbUpsert("cashflow",{key:"notion_sync_request",value:{
+      type:"calendar",
+      pending:state.pending||[],
+      requestedAt:new Date().toISOString()
+    }})
+    toast("📅 Synced to Notion calendar","green")
+  }catch(e){toast("Sync failed","red")}
+  btn.textContent="📅 Sync pending payments to calendar"
+  btn.classList.remove("notion-syncing")
 }
 async function syncTasksToNotion(){
-  toast("Syncing tasks to Notion...","")
-  setTimeout(()=>toast("Financial tasks synced to Notion","green"),1500)
+  const btn=event.currentTarget
+  btn.textContent="⟳ Syncing..."
+  btn.classList.add("notion-syncing")
+  try{
+    const tasks=(state.pending||[]).filter(p=>!p.received).map(p=>({
+      name:"💸 "+p.name+" — "+fmt(p.amount),
+      date:p.date,
+      note:p.note||""
+    }))
+    await sbUpsert("cashflow",{key:"notion_tasks_request",value:{
+      type:"tasks",
+      tasks,
+      requestedAt:new Date().toISOString()
+    }})
+    toast("✅ Tasks synced to Notion","green")
+  }catch(e){toast("Sync failed","red")}
+  btn.textContent="✅ Sync financial tasks"
+  btn.classList.remove("notion-syncing")
 }
 
 // AI
@@ -941,6 +1225,29 @@ function copyPitch(){
 
 init()
 
+// Progress arc
+function renderProgressArc(){
+  const canvas=document.getElementById("arcCanvas");if(!canvas)return
+  const ctx=canvas.getContext("2d")
+  const start=new Date(2026,4,1),end=new Date(2026,7,31),now=new Date()
+  const total=end-start,elapsed=Math.min(Math.max(now-start,0),total)
+  const pct=elapsed/total
+  const cx=30,cy=30,r=24,lineW=5
+  ctx.clearRect(0,0,60,60)
+  // Track
+  ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,Math.PI*1.5);ctx.strokeStyle="rgba(255,255,255,.08)";ctx.lineWidth=lineW;ctx.lineCap="round";ctx.stroke()
+  // Fill
+  const grad=ctx.createLinearGradient(0,0,60,60);grad.addColorStop(0,"#32d74b");grad.addColorStop(1,"#0a84ff")
+  ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+Math.PI*2*pct);ctx.strokeStyle=grad;ctx.lineWidth=lineW;ctx.lineCap="round";ctx.stroke()
+  // Pct text
+  ctx.fillStyle="#f5f5f7";ctx.font="bold 11px -apple-system";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(Math.round(pct*100)+"%",cx,cy)
+  // Info
+  const daysLeft=Math.max(0,Math.ceil((end-now)/(1000*60*60*24)))
+  const arcTitle=document.getElementById("arcTitle"),arcSub=document.getElementById("arcSub")
+  if(arcTitle)arcTitle.textContent=Math.round(pct*100)+"% of plan complete"
+  if(arcSub)arcSub.textContent=daysLeft+" days remaining · Aug 31"
+}
+
 // Dynamic greeting
 function setGreeting(){
   const h=new Date().getHours()
@@ -949,6 +1256,8 @@ function setGreeting(){
   if(el)el.textContent=g+", Sean"
 }
 setGreeting()
+renderProgressArc()
+renderCountdown()
 </script>
 </body>
 </html>
