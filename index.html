@@ -408,7 +408,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
       <div id="addPendingForm" style="display:none;margin-top:12px;padding-top:12px;border-top:.5px solid var(--border);">
         <div class="form-row">
           <input class="form-input" id="pName" placeholder="Source (e.g. Juan payout)">
-          <input class="form-input" id="pAmount" type="number" placeholder="Amount" style="width:100px;flex:none;">
+          <input class="form-input" id="pAmount" type="number" inputmode="decimal" placeholder="Amount" style="width:100px;flex:none;">
         </div>
         <div class="form-row">
           <input class="form-input" id="pDate" type="date">
@@ -423,10 +423,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
       </div>
     </div>
 
-    <!-- ALERTS -->
-    <div class="card">
-      <div class="card-hdr"><div class="card-title">🔔 Payment Alerts</div></div>
-      <div id="alertsList"></div>
+    <!-- AI ALERTS -->
+    <div class="card" id="alertsCard">
+      <div class="card-hdr">
+        <div class="card-title">🧠 AI Alerts</div>
+        <button class="card-action" id="alertRefreshBtn" onclick="refreshAIAlerts()">Refresh</button>
+      </div>
+      <div id="aiAlertsList"></div>
     </div>
 
     <!-- CHART -->
@@ -486,7 +489,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
       <div id="addExpenseForm" style="display:none;margin-bottom:14px;padding-bottom:14px;border-bottom:.5px solid var(--border);">
         <div class="form-row">
           <input class="form-input" id="eName" placeholder="What did you spend on?">
-          <input class="form-input" id="eAmount" type="number" placeholder="$" style="width:80px;flex:none;">
+          <input class="form-input" id="eAmount" type="number" inputmode="decimal" placeholder="$" style="width:80px;flex:none;">
         </div>
         <div class="form-row">
           <select class="form-select" id="eCat">
@@ -520,10 +523,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
       <div id="addGoalForm" style="display:none;margin-bottom:12px;padding-bottom:12px;border-bottom:.5px solid var(--border);">
         <div class="form-row">
           <input class="form-input" id="gName" placeholder="Goal name">
-          <input class="form-input" id="gTarget" type="number" placeholder="Target $" style="width:110px;flex:none;">
+          <input class="form-input" id="gTarget" type="number" inputmode="decimal" placeholder="Target $" style="width:110px;flex:none;">
         </div>
         <div class="form-row">
-          <input class="form-input" id="gCurrent" type="number" placeholder="Current $">
+          <input class="form-input" id="gCurrent" type="number" inputmode="decimal" placeholder="Current $">
           <input class="form-input" id="gDeadline" type="month" style="width:140px;flex:none;">
           <button class="form-btn" onclick="addGoal()">Add</button>
         </div>
@@ -540,10 +543,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
       <div id="addReinvestForm" style="display:none;margin-bottom:12px;padding-bottom:12px;border-bottom:.5px solid var(--border);">
         <div class="form-row">
           <input class="form-input" id="rName" placeholder="Deal name">
-          <input class="form-input" id="rIn" type="number" placeholder="Invested $" style="width:110px;flex:none;">
+          <input class="form-input" id="rIn" type="number" inputmode="decimal" placeholder="Invested $" style="width:110px;flex:none;">
         </div>
         <div class="form-row">
-          <input class="form-input" id="rReturn" type="number" placeholder="Expected return $">
+          <input class="form-input" id="rReturn" type="number" inputmode="decimal" placeholder="Expected return $">
           <input class="form-input" id="rDate" type="month" placeholder="Return date" style="width:140px;flex:none;">
           <button class="form-btn" onclick="addReinvest()">Add</button>
         </div>
@@ -812,7 +815,7 @@ function runBal(){let b=0;return MONTHS.map((_,i)=>{b+=mNet(i);return b})}
 function renderAll(animate=false){
   renderDashboard(animate)
   renderPending()
-  renderAlerts()
+  renderBasicAlerts()
   buildMonths()
   renderTimeline()
   renderGoals()
@@ -820,6 +823,7 @@ function renderAll(animate=false){
   renderExpenseSummary()
   renderReinvestments()
   renderScenarios()
+  if(animate)setTimeout(generateAIAlerts,2000)
 }
 
 let chart
@@ -840,56 +844,95 @@ function renderDashboard(animate=false){
 }
 
 function renderPending(){
-  const list=document.getElementById("pendingList")
-  if(!list)return
-  list.innerHTML=""
-  const today=new Date()
-  if(!state.pending||state.pending.length===0){
-    list.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:14px 0;">No pending payments. Add one above.</div>'
+  const list = document.getElementById("pendingList")
+  if(!list) return
+  list.innerHTML = ""
+  const today = new Date()
+
+  if(!state.pending || state.pending.length === 0){
+    list.innerHTML = '<div style="font-size:12px;color:var(--text3);text-align:center;padding:14px 0;">No pending payments. Add one above.</div>'
+    renderCountdown()
     return
   }
-  // Sort: pending first by date, received at bottom
-  const sorted=[...state.pending].map((p,origIdx)=>({...p,origIdx}))
-  sorted.sort((a,b)=>{
-    if(!!a.received!==!!b.received)return a.received?1:-1
-    return new Date(a.date)-new Date(b.date)
-  })
-  sorted.forEach((p)=>{
-    const i=p.origIdx
-    const d=new Date(p.date)
-    const diff=Math.ceil((d-today)/(1000*60*60*24))
-    const received=p.received||false
-    const amtColor=received?"var(--green)":"var(--orange)"
-    const dotColor=received?"var(--green)":"var(--orange)"
-    let statusClass="status-pending",statusLabel="Pending"
-    if(received){statusClass="status-received";statusLabel="✓ Received"}
-    else if(diff===0){statusClass="status-soon";statusLabel="Today!"}
-    else if(diff<=3&&diff>0){statusClass="status-soon";statusLabel="Due soon"}
-    else if(diff<0){statusClass="status-overdue";statusLabel="Overdue"}
 
-    const row=document.createElement("div")
-    row.style.cssText="display:flex;justify-content:space-between;align-items:flex-start;padding:13px 0;border-bottom:.5px solid rgba(255,255,255,.05);"
-    row.innerHTML=`
-      <div style="display:flex;align-items:flex-start;gap:11px;flex:1;min-width:0;">
-        <div style="width:9px;height:9px;border-radius:50%;background:${dotColor};flex-shrink:0;margin-top:4px;box-shadow:0 0 6px ${dotColor}88;"></div>
-        <div style="min-width:0;">
-          <div style="font-size:14px;font-weight:600;color:#fff;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
-          <div style="font-size:12px;font-weight:500;color:rgba(255,255,255,.7);margin-top:3px;">${d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})}</div>
-          ${p.note?`<div style="font-size:11px;color:var(--text3);margin-top:3px;font-style:italic;">${p.note}</div>`:''}
-        </div>
-      </div>
-      <div style="flex-shrink:0;margin-left:12px;text-align:right;">
-        <div style="font-size:16px;font-weight:700;color:${amtColor};letter-spacing:-.02em;">${fmt(p.amount)}</div>
-        <div style="display:flex;gap:5px;justify-content:flex-end;align-items:center;margin-top:5px;flex-wrap:wrap;">
-          <span class="pi-status ${statusClass}">${statusLabel}</span>
-          ${!received?`<button style="font-size:9px;padding:3px 9px;border-radius:20px;border:.5px solid rgba(50,215,75,.3);background:rgba(50,215,75,.07);color:var(--green);cursor:pointer;font-family:inherit;font-weight:700;letter-spacing:.03em;" onclick="markReceived(${i})">Received</button>`:''}
-          <button style="background:none;border:none;color:rgba(255,255,255,.2);cursor:pointer;font-size:14px;padding:2px 5px;border-radius:5px;transition:all .15s;line-height:1;" onmouseover="this.style.color='var(--red)';this.style.background='rgba(255,69,58,.1)'" onmouseout="this.style.color='rgba(255,255,255,.2)';this.style.background='none'" onclick="deletePending(${i})">✕</button>
-        </div>
-      </div>`
+  // Sort: pending by date first, received at bottom
+  const items = state.pending.map((p, i) => ({...p, idx: i}))
+  items.sort((a, b) => {
+    if(!!a.received !== !!b.received) return a.received ? 1 : -1
+    return new Date(a.date) - new Date(b.date)
+  })
+
+  items.forEach(function(p) {
+    const i = p.idx
+    const d = new Date(p.date)
+    const diff = Math.ceil((d - today) / (1000*60*60*24))
+    const received = p.received || false
+    const amtColor = received ? 'var(--green)' : 'var(--orange)'
+    const dotColor = received ? 'var(--green)' : 'var(--orange)'
+
+    let badge = ''
+    if(received) badge = '<span style="font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;background:rgba(50,215,75,.08);color:var(--green);border:.5px solid rgba(50,215,75,.2);">✓ Received</span>'
+    else if(diff === 0) badge = '<span style="font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;background:rgba(255,214,10,.08);color:var(--amber);border:.5px solid rgba(255,214,10,.2);">Today!</span>'
+    else if(diff < 0) badge = '<span style="font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;background:rgba(255,69,58,.08);color:var(--red);border:.5px solid rgba(255,69,58,.2);">Overdue</span>'
+    else if(diff <= 5) badge = '<span style="font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;background:rgba(255,214,10,.08);color:var(--amber);border:.5px solid rgba(255,214,10,.2);">Due soon</span>'
+    else badge = '<span style="font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;background:rgba(10,132,255,.08);color:var(--blue);border:.5px solid rgba(10,132,255,.18);">Pending</span>'
+
+    const row = document.createElement('div')
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;padding:14px 0;border-bottom:.5px solid rgba(255,255,255,.05);'
+
+    // LEFT side
+    const left = document.createElement('div')
+    left.style.cssText = 'display:flex;align-items:flex-start;gap:11px;flex:1;min-width:0;'
+    left.innerHTML = '<div style="width:9px;height:9px;border-radius:50%;background:' + dotColor + ';flex-shrink:0;margin-top:5px;box-shadow:0 0 6px ' + dotColor + '88;"></div>'
+    const nameWrap = document.createElement('div')
+    nameWrap.style.minWidth = '0'
+    nameWrap.innerHTML = '<div style="font-size:14px;font-weight:600;color:#fff;letter-spacing:-.01em;">' + p.name + '</div>'
+      + '<div style="font-size:12px;font-weight:500;color:rgba(255,255,255,.65);margin-top:3px;">' + d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'}) + '</div>'
+      + (p.note ? '<div style="font-size:11px;color:var(--text3);margin-top:2px;font-style:italic;">' + p.note + '</div>' : '')
+    left.appendChild(nameWrap)
+
+    // RIGHT side
+    const right = document.createElement('div')
+    right.style.cssText = 'flex-shrink:0;margin-left:14px;text-align:right;'
+
+    const amt = document.createElement('div')
+    amt.style.cssText = 'font-size:16px;font-weight:700;letter-spacing:-.02em;color:' + amtColor + ';'
+    amt.textContent = fmt(p.amount)
+
+    const actions = document.createElement('div')
+    actions.style.cssText = 'display:flex;gap:6px;justify-content:flex-end;align-items:center;margin-top:6px;flex-wrap:wrap;'
+    actions.innerHTML = badge
+
+    // Mark received button
+    if(!received){
+      const markBtn = document.createElement('button')
+      markBtn.textContent = 'Received'
+      markBtn.style.cssText = 'font-size:9px;padding:3px 9px;border-radius:20px;border:.5px solid rgba(50,215,75,.3);background:rgba(50,215,75,.07);color:var(--green);cursor:pointer;font-family:inherit;font-weight:700;letter-spacing:.03em;'
+      markBtn.onclick = (function(idx){ return function(e){ e.stopPropagation(); markReceived(idx) } })(i)
+      actions.appendChild(markBtn)
+    }
+
+    // Delete button - using closure to capture correct index
+    const delBtn = document.createElement('button')
+    delBtn.textContent = '✕'
+    delBtn.title = 'Delete'
+    delBtn.style.cssText = 'background:none;border:none;color:rgba(255,255,255,.25);cursor:pointer;font-size:14px;padding:2px 5px;border-radius:5px;line-height:1;'
+    delBtn.onmouseover = function(){ this.style.color='var(--red)'; this.style.background='rgba(255,69,58,.1)' }
+    delBtn.onmouseout = function(){ this.style.color='rgba(255,255,255,.25)'; this.style.background='none' }
+    delBtn.onclick = (function(idx){ return function(e){ e.stopPropagation(); deletePending(idx) } })(i)
+    actions.appendChild(delBtn)
+
+    right.appendChild(amt)
+    right.appendChild(actions)
+
+    row.appendChild(left)
+    row.appendChild(right)
     list.appendChild(row)
   })
+
   renderCountdown()
 }
+
 
 function renderCountdown(){
   const today=new Date()
@@ -954,15 +997,111 @@ function launchConfetti(){
 }
 
 function renderAlerts(){
-  const list=document.getElementById("alertsList");list.innerHTML=""
-  const today=new Date()
-  const alerts=[]
-  if(state.pending){state.pending.forEach(p=>{const d=new Date(p.date),diff=Math.ceil((d-today)/(1000*60*60*24));if(diff<=7&&diff>=0)alerts.push({icon:"💵",title:p.name+" due "+d.toLocaleDateString("en-US",{month:"short",day:"numeric"}),sub:"Expected: "+fmt(p.amount),color:"var(--amber)"});else if(diff<0)alerts.push({icon:"⚠️",title:p.name+" is overdue",sub:"Expected: "+fmt(p.amount),color:"var(--red)"})})}
-  alerts.push({icon:"📅",title:"Jason payment due",sub:"$1,500 first of the month",color:"var(--blue)"})
-  alerts.push({icon:"🎯",title:"May 25th payout coming",sub:"$7,300 from Juan deals",color:"var(--green)"})
-  if(alerts.length===0){list.innerHTML='<div style="font-size:12px;color:var(--text3);">No alerts right now.</div>';return}
-  alerts.slice(0,3).forEach(a=>{const el=document.createElement("div");el.className="alert-item";el.innerHTML=`<div class="alert-icon">${a.icon}</div><div class="alert-text"><div class="alert-title" style="color:${a.color}">${a.title}</div><div class="alert-sub">${a.sub}</div></div>`;list.appendChild(el)})
+  renderBasicAlerts()
+  clearTimeout(window.aiAlertTimer)
+  window.aiAlertTimer = setTimeout(generateAIAlerts, 2000)
 }
+
+function renderBasicAlerts(){
+  const list = document.getElementById("aiAlertsList")
+  if(!list) return
+  list.innerHTML = ""
+  const today = new Date()
+  const alerts = []
+
+  // Overdue / due soon payments
+  if(state.pending){
+    state.pending.forEach(function(p){
+      if(p.received) return
+      const d = new Date(p.date)
+      const diff = Math.ceil((d - today) / (1000*60*60*24))
+      if(diff < 0) alerts.push({icon:"⚠️", title:p.name + " is overdue", sub:"Was expected " + d.toLocaleDateString("en-US",{month:"short",day:"numeric"}), color:"var(--red)", priority:1})
+      else if(diff <= 5) alerts.push({icon:"⏰", title:p.name + " due in " + diff + (diff===1?" day":" days"), sub:"Expected: " + fmt(p.amount), color:"var(--amber)", priority:2})
+    })
+  }
+
+  // Negative months
+  MONTHS.forEach(function(m,i){
+    const net = mNet(i)
+    if(net < 0) alerts.push({icon:"📉", title:m + " is running negative", sub:"Net: " + fmt(net) + " — review obligations", color:"var(--red)", priority:1})
+  })
+
+  // Positive milestone
+  const totalNet = MONTHS.reduce(function(s,_,i){return s+mNet(i)},0)
+  if(totalNet > 10000) alerts.push({icon:"💪", title:"4-month net over $10k", sub:fmt(totalNet) + " projected — on track", color:"var(--green)", priority:4})
+
+  alerts.sort(function(a,b){return a.priority-b.priority}).slice(0,3).forEach(function(a){
+    const el = document.createElement("div")
+    el.className = "alert-item"
+    el.innerHTML = '<div class="alert-icon">' + a.icon + '</div><div class="alert-text"><div class="alert-title" style="color:' + a.color + '">' + a.title + '</div><div class="alert-sub">' + a.sub + '</div></div>'
+    list.appendChild(el)
+  })
+
+  if(alerts.length === 0){
+    list.innerHTML = '<div style="font-size:12px;color:var(--text3);text-align:center;padding:8px 0;">No urgent alerts — generating AI analysis...</div>'
+  }
+}
+
+async function generateAIAlerts(){
+  if(!anthropicKey) return
+  const btn = document.getElementById("alertRefreshBtn")
+  if(btn){ btn.textContent = "⟳"; btn.style.opacity = ".5" }
+
+  const nets = MONTHS.map(function(_,i){ return mNet(i) })
+  const ti = MONTHS.reduce(function(s,_,i){ return s+mIn(i) },0)
+  const to = MONTHS.reduce(function(s,_,i){ return s+mOut(i) },0)
+  const pendingTotal = (state.pending||[]).filter(function(p){ return !p.received }).reduce(function(s,p){ return s+p.amount },0)
+  const overdue = (state.pending||[]).filter(function(p){ return !p.received && new Date(p.date) < new Date() }).length
+
+  const prompt = "You are analyzing Sean Evangelista cash flow. Generate 2-3 specific actionable alerts. Monthly net: " + MONTHS.map(function(m,i){ return m+": "+fmt(nets[i]) }).join(", ") + ". 4-mo net: " + fmt(ti-to) + ". Pending: " + fmt(pendingTotal) + ". Overdue: " + overdue + ". Debts: Jason $51,550 ($3k/mo), Anthony V $2,250. Reinvest: $3k->$6k Jun, $9k->$27k Aug-Dec. Respond ONLY with a JSON array no other text: [{icon: emoji string, title: short title string, message: one sentence string, type: warning or success or info or danger}]"
+
+  try{
+    const res = await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "x-api-key":anthropicKey,
+        "anthropic-version":"2023-06-01",
+        "anthropic-dangerous-direct-browser-access":"true"
+      },
+      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:350,messages:[{role:"user",content:prompt}]})
+    })
+    const d = await res.json()
+    const text = d.content && d.content[0] ? d.content[0].text : ""
+    const jsonMatch = text.match(/\[[\s\S]*?\]/)
+    if(!jsonMatch) return
+
+    const aiAlerts = JSON.parse(jsonMatch[0])
+    const list = document.getElementById("aiAlertsList")
+    if(!list) return
+
+    const colorMap = {warning:"var(--amber)",success:"var(--green)",info:"var(--blue)",danger:"var(--red)"}
+
+    // Add divider
+    const div = document.createElement("div")
+    div.style.cssText = "display:flex;align-items:center;gap:8px;margin:10px 0 8px;"
+    div.innerHTML = '<div style="height:.5px;flex:1;background:rgba(255,255,255,.06);"></div><div style="font-size:9px;font-weight:700;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;">AI ANALYSIS</div><div style="height:.5px;flex:1;background:rgba(255,255,255,.06);"></div>'
+    list.appendChild(div)
+
+    aiAlerts.forEach(function(a){
+      const el = document.createElement("div")
+      el.className = "alert-item"
+      const color = colorMap[a.type] || "var(--blue)"
+      el.innerHTML = '<div class="alert-icon">' + a.icon + '</div><div class="alert-text"><div class="alert-title" style="color:' + color + '">' + a.title + '</div><div class="alert-sub">' + a.message + '</div></div>'
+      list.appendChild(el)
+    })
+  } catch(e){ console.log("AI alerts error:", e) }
+
+  if(btn){ btn.textContent = "Refresh"; btn.style.opacity = "1" }
+}
+
+async function refreshAIAlerts(){
+  const list = document.getElementById("aiAlertsList")
+  if(list) list.innerHTML = '<div style="font-size:12px;color:var(--text3);text-align:center;padding:12px 0;">Analyzing your cash flow...</div>'
+  renderBasicAlerts()
+  await generateAIAlerts()
+}
+
 
 function renderTimeline(){
   const list=document.getElementById("timelineList");list.innerHTML=""
@@ -1010,9 +1149,15 @@ function makeRow(item,onL,onV,onRm){
   li.addEventListener("input",()=>{onL(li.value);autoSave()})
   li.addEventListener("blur",()=>{/* save on blur, no re-render needed */});li.addEventListener("click",e=>e.stopPropagation())
   const vi=document.createElement("input");vi.className="fval";vi.type="number";vi.inputMode="decimal";vi.autocomplete="off";vi.autocorrect="off";vi.value=Math.round(item.val);vi.step=1
-  vi.addEventListener("input",()=>{
+  // iOS FIX: use 'change' not 'input' so keyboard stays up while typing
+  vi.addEventListener("change",()=>{
     onV(parseFloat(vi.value)||0)
-    // Update summary numbers without rebuilding inputs (iOS keyboard fix)
+    updateSummaryOnly()
+    autoSave()
+  })
+  // Also update on blur (when user leaves field)
+  vi.addEventListener("blur",()=>{
+    onV(parseFloat(vi.value)||0)
     updateSummaryOnly()
     autoSave()
   })
@@ -1046,6 +1191,31 @@ function rebuildBody(i){
   na.appendChild(ni);body.appendChild(na)
   const nr=document.createElement("div");nr.className="net-row";nr.id="net-"+i;body.appendChild(nr)
   if(wasOpen)body.classList.add("open");updateNets()
+}
+
+function renderExpenseSummary(){
+  const summary=document.getElementById("expenseSummary")
+  if(!summary||!state.expenses||state.expenses.length===0){if(summary)summary.innerHTML="";return}
+  const total=state.expenses.reduce((s,e)=>s+(parseFloat(e.amount)||0),0)
+  const now=new Date()
+  const monthStr=now.getFullYear()+"-"+(now.getMonth()<9?"0":"")+(now.getMonth()+1)
+  const thisMonth=state.expenses.filter(e=>e.date&&e.date.startsWith(monthStr)).reduce((s,e)=>s+(parseFloat(e.amount)||0),0)
+  const cats={}
+  state.expenses.forEach(e=>{cats[e.cat]=(cats[e.cat]||0)+(parseFloat(e.amount)||0)})
+  const topCat=Object.keys(cats).sort((a,b)=>cats[b]-cats[a])[0]||"None"
+  summary.innerHTML=`
+    <div style="background:rgba(255,255,255,.03);border:.5px solid rgba(255,255,255,.08);border-radius:14px;padding:12px 14px;">
+      <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px;">Total spent</div>
+      <div style="font-size:18px;font-weight:700;color:var(--red);letter-spacing:-.02em;">-${fmt(total)}</div>
+    </div>
+    <div style="background:rgba(255,255,255,.03);border:.5px solid rgba(255,255,255,.08);border-radius:14px;padding:12px 14px;">
+      <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px;">This month</div>
+      <div style="font-size:18px;font-weight:700;color:var(--red);letter-spacing:-.02em;">-${fmt(thisMonth)}</div>
+    </div>
+    <div style="background:rgba(255,255,255,.03);border:.5px solid rgba(255,255,255,.08);border-radius:14px;padding:12px 14px;">
+      <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px;">Top category</div>
+      <div style="font-size:13px;font-weight:700;color:var(--text);">${topCat.split(" ").slice(0,2).join(" ")}</div>
+    </div>`
 }
 
 const BADGES=["Payout month","Beto cleared","Kris cleared","Reinvest returns"]
