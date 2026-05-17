@@ -761,10 +761,11 @@ async function init(){
     const[sr,kr]=await Promise.all([sbGet("cashflow","key=eq.state&select=value"),sbGet("settings","key=eq.anthropic_key&select=value")])
     if(kr&&kr[0])anthropicKey=kr[0].value
     if(sr&&sr[0]&&sr[0].value){
-      const s=sr[0].value
-      Object.keys(DEFAULT).forEach(k=>{if(s[k]!==undefined)state[k]=s[k]})
-      // Set hash after loading so first poll doesn't false-positive trigger
-      setTimeout(()=>lastSyncHash=getStateHash(),100)
+      const s = sr[0].value
+      const keys = ["income","obligations","pending","goals","expenses","reinvestments","notes","open"]
+      keys.forEach(function(k){ if(s[k] !== undefined) state[k] = s[k] })
+      // Remember this timestamp so we don't re-apply our own loaded data
+      if(s.saved_at) lastSeenTimestamp = s.saved_at
     }
     else await save()
     setSave("synced")
@@ -777,10 +778,12 @@ async function init(){
 
 async function save(){
   try{
-    await sbUpsert("cashflow",{key:"state",value:state})
-    lastSyncHash=getStateHash()
+    const ts = Date.now()
+    const payload = Object.assign({}, state, {saved_at: ts})
+    await sbUpsert("cashflow", {key:"state", value:payload})
+    lastSeenTimestamp = ts  // Mark this as our own save so we don't re-apply it
     setSave("saved")
-  }catch(e){setSave("error")}
+  } catch(e){ setSave("error") }
 }
 function autoSave(){clearTimeout(saveTimer);setSave("saving...");saveTimer=setTimeout(save,1200)}
 function setSave(s){
@@ -1467,60 +1470,53 @@ function copyPitch(){
 init()
 
 // ── LIVE SYNC: poll Supabase every 30s for changes from other devices ──
-let lastSyncHash = ""
-function getStateHash(){
-  try{
-    return JSON.stringify({
-      income:state.income,obligations:state.obligations,
-      pending:state.pending||[],goals:state.goals||[],
-      expenses:state.expenses||[],reinvestments:state.reinvestments||[]
-    })
-  }catch(e){return ""}
-}
+// ── SYNC ENGINE ──
+// Uses a simple timestamp-based approach: every save writes a timestamp
+// The poller compares timestamps to detect changes from other devices
+
+let lastSeenTimestamp = 0
+
 async function pollForUpdates(){
   try{
-    const rows=await sbGet("cashflow","key=eq.state&select=value")
-    if(!rows||!rows[0]||!rows[0].value)return
-    const remote=rows[0].value
-    const currentHash=getStateHash()
-    const remoteHash=JSON.stringify({
-      income:remote.income,obligations:remote.obligations,
-      pending:remote.pending||[],goals:remote.goals||[],
-      expenses:remote.expenses||[],reinvestments:remote.reinvestments||[]
-    })
-    // Only update if remote is genuinely different from what we have
-    if(remoteHash!==currentHash){
-      // Check we're not just seeing our own recent save
-      if(remoteHash!==lastSyncHash){
-        Object.keys(remote).forEach(k=>{if(remote[k]!==undefined)state[k]=remote[k]})
-        lastSyncHash=remoteHash
-        renderAll(false)
-        showSyncToast()
-      }
+    const rows = await sbGet("cashflow", "key=eq.state&select=value")
+    if(!rows || !rows[0] || !rows[0].value) return
+    const remote = rows[0].value
+
+    // Use saved_at timestamp to detect if remote is newer
+    const remoteTs = remote.saved_at || 0
+    if(remoteTs > lastSeenTimestamp && remoteTs !== lastSeenTimestamp){
+      // Remote has a newer save — apply it
+      lastSeenTimestamp = remoteTs
+      const keys = ["income","obligations","pending","goals","expenses","reinvestments","notes","open"]
+      keys.forEach(function(k){ if(remote[k] !== undefined) state[k] = remote[k] })
+      renderAll(false)
+      showSyncToast()
     }
-  }catch(e){console.log("Poll error:",e)}
+  } catch(e){ /* silent fail */ }
 }
 
 function showSyncToast(){
-  const t=document.getElementById("toast")
-  if(!t)return
-  t.textContent="↓ Synced from other device"
-  t.className="toast show green"
-  setTimeout(()=>t.className="toast",2500)
+  const t = document.getElementById("toast")
+  if(!t) return
+  t.textContent = "↓ Synced from other device"
+  t.className = "toast show green"
+  setTimeout(function(){ t.className = "toast" }, 2500)
 }
 
-// Manual sync - tap the sync button in topbar
 async function manualSync(){
-  const btn=document.getElementById("syncBtn")
-  if(btn){btn.textContent="⟳";btn.style.opacity=".6"}
-  lastSyncHash="" // Force re-check
+  const btn = document.getElementById("syncBtn")
+  if(btn){ btn.textContent = "⟳"; btn.style.opacity = ".5" }
+  lastSeenTimestamp = 0 // Force accept whatever is in Supabase
   await pollForUpdates()
-  if(btn){btn.textContent="↓";btn.style.opacity="1"}
+  if(btn){ btn.textContent = "↓"; btn.style.opacity = "1" }
 }
-// Poll every 30 seconds
-setInterval(pollForUpdates, 15000)
-// Also poll when tab becomes visible again (switching from another device)
-document.addEventListener("visibilitychange",()=>{if(!document.hidden)pollForUpdates()})
+
+// Poll every 10 seconds
+setInterval(pollForUpdates, 10000)
+// Sync immediately when switching back to the tab
+document.addEventListener("visibilitychange", function(){
+  if(!document.hidden) pollForUpdates()
+})
 
 // Progress arc
 function renderProgressArc(){
