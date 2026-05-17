@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Cash Flow OS</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -206,10 +206,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
 .field-row{display:flex;align-items:center;gap:7px;margin-bottom:6px;animation:fadeUp .15s ease;}
 .rm{width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text3);cursor:pointer;background:none;border:none;border-radius:4px;transition:all .15s;flex-shrink:0;}
 .rm:hover{color:var(--red);background:rgba(255,69,58,.1);}
-.flabel{flex:1;font-size:12px;font-weight:400;padding:6px 9px;border-radius:8px;border:.5px solid transparent;background:transparent;color:var(--text2);transition:all .15s;min-width:0;font-family:inherit;}
+.flabel{flex:1;font-size:16px;font-weight:400;padding:6px 9px;border-radius:8px;border:.5px solid transparent;background:transparent;color:var(--text2);transition:all .15s;min-width:0;font-family:inherit;}
 .flabel:hover{border-color:rgba(255,255,255,.1);background:rgba(255,255,255,.03);}
 .flabel:focus{outline:none;border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--text);}
-.fval{width:82px;font-size:12px;font-weight:600;padding:6px 9px;border-radius:8px;border:.5px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:var(--text);text-align:right;transition:all .15s;flex-shrink:0;font-family:inherit;}
+.fval{width:82px;font-size:16px;font-weight:600;padding:6px 9px;border-radius:8px;border:.5px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:var(--text);text-align:right;transition:all .15s;flex-shrink:0;font-family:inherit;}
 .fval:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(50,215,75,.08);}
 .net-row{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:700;letter-spacing:-.02em;margin-top:14px;padding-top:12px;border-top:.5px solid rgba(255,255,255,.07);}
 .net-label{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;}
@@ -220,12 +220,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
 
 /* ── FORMS ── */
 .form-row{display:flex;gap:8px;margin-bottom:10px;}
-.form-input{flex:1;background:rgba(255,255,255,.05);border:.5px solid rgba(255,255,255,.12);border-radius:11px;color:var(--text);font-size:12px;font-weight:400;padding:10px 13px;outline:none;transition:all .2s;font-family:inherit;}
+.form-input{flex:1;background:rgba(255,255,255,.05);border:.5px solid rgba(255,255,255,.12);border-radius:11px;color:var(--text);font-size:16px;font-weight:400;padding:10px 13px;outline:none;transition:all .2s;font-family:inherit;}
 .form-input:focus{border-color:rgba(10,132,255,.45);background:rgba(10,132,255,.04);box-shadow:0 0 0 4px rgba(10,132,255,.06);}
 .form-input::placeholder{color:var(--text3);}
 .form-btn{background:var(--blue);border:none;border-radius:11px;color:#fff;font-size:12px;font-weight:600;padding:10px 16px;cursor:pointer;transition:all .2s;font-family:inherit;white-space:nowrap;letter-spacing:.01em;}
 .form-btn:hover{background:#1a8fff;transform:translateY(-1px);box-shadow:0 4px 14px rgba(10,132,255,.35);}
-.form-select{flex:1;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.1);border-radius:11px;color:var(--text);font-size:12px;padding:10px 13px;outline:none;font-family:inherit;}
+.form-select{flex:1;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.1);border-radius:11px;color:var(--text);font-size:16px;padding:10px 13px;outline:none;font-family:inherit;}
 
 /* ── NOTION ── */
 .notion-status{display:flex;align-items:center;gap:11px;padding:13px 16px;background:rgba(50,215,75,.04);border:.5px solid rgba(50,215,75,.18);border-radius:14px;margin-bottom:14px;}
@@ -767,7 +767,13 @@ async function init(){
   renderAll(true)
 }
 
-async function save(){try{await sbUpsert("cashflow",{key:"state",value:state});setSave("saved")}catch(e){setSave("error")}}
+async function save(){
+  try{
+    await sbUpsert("cashflow",{key:"state",value:state})
+    lastSyncHash=getStateHash()
+    setSave("saved")
+  }catch(e){setSave("error")}
+}
 function autoSave(){clearTimeout(saveTimer);setSave("saving...");saveTimer=setTimeout(save,1200)}
 function setSave(s){const p=document.getElementById("savePill"),t=document.getElementById("saveText");if(s==="saved"||s==="synced"){p.classList.add("saved");t.textContent=s==="synced"?"Synced":"Saved "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});setTimeout(()=>{p.classList.remove("saved");t.textContent="Auto-saved"},2500)}else{p.classList.remove("saved");t.textContent=s}}
 
@@ -981,9 +987,16 @@ function makeRow(item,onL,onV,onRm){
   const row=document.createElement("div");row.className="field-row"
   const rm=document.createElement("button");rm.className="rm";rm.textContent="×";rm.addEventListener("click",e=>{e.stopPropagation();onRm()})
   const li=document.createElement("input");li.className="flabel";li.type="text";li.value=item.label;li.placeholder="Label..."
-  li.addEventListener("input",()=>{onL(li.value);autoSave()});li.addEventListener("click",e=>e.stopPropagation())
-  const vi=document.createElement("input");vi.className="fval";vi.type="number";vi.value=Math.round(item.val);vi.step=1
-  vi.addEventListener("input",()=>{onV(parseFloat(vi.value)||0);renderAll();autoSave()});vi.addEventListener("click",e=>e.stopPropagation())
+  li.addEventListener("input",()=>{onL(li.value);autoSave()})
+  li.addEventListener("blur",()=>{/* save on blur, no re-render needed */});li.addEventListener("click",e=>e.stopPropagation())
+  const vi=document.createElement("input");vi.className="fval";vi.type="number";vi.inputMode="decimal";vi.autocomplete="off";vi.autocorrect="off";vi.value=Math.round(item.val);vi.step=1
+  vi.addEventListener("input",()=>{
+    onV(parseFloat(vi.value)||0)
+    // Update summary numbers without rebuilding inputs (iOS keyboard fix)
+    updateSummaryOnly()
+    autoSave()
+  })
+  vi.addEventListener("click",e=>e.stopPropagation())
   row.appendChild(rm);row.appendChild(li);row.appendChild(vi);return row
 }
 
@@ -992,7 +1005,13 @@ function buildSec(body,i,type){
   const sh=document.createElement("div");sh.className="sec-hdr"
   const sl=document.createElement("div");sl.className="sec-label";sl.style.color=isIn?"var(--green)":"var(--red)";sl.textContent=isIn?"Income":"Obligations"
   const ab=document.createElement("button");ab.className="add-btn";ab.textContent="+ Add"
-  ab.addEventListener("click",e=>{e.stopPropagation();arr.push({label:"New item",val:0});rebuildBody(i);renderAll();autoSave()})
+  ab.addEventListener("click",e=>{
+    e.stopPropagation()
+    arr.push({label:"New item",val:0})
+    rebuildBody(i)
+    updateSummaryOnly()
+    autoSave()
+  })
   sh.appendChild(sl);sh.appendChild(ab);body.appendChild(sh)
   arr.forEach((item,j)=>body.appendChild(makeRow(item,v=>arr[j].label=v,v=>arr[j].val=v,()=>{arr.splice(j,1);rebuildBody(i);renderAll();autoSave()})))
 }
@@ -1029,6 +1048,38 @@ function buildMonths(){
     const body=document.createElement("div");body.className="month-body"+(state.open[i]?" open":"");body.id="mbody-"+i
     item.appendChild(body);wrap.appendChild(item);rebuildBody(i)
   })
+}
+
+function updateSummaryOnly(){
+  // Updates all number displays without rebuilding any DOM inputs
+  // Safe to call while user is typing — won't dismiss iOS keyboard
+  const ti=MONTHS.reduce((s,_,i)=>s+mIn(i),0)
+  const to=MONTHS.reduce((s,_,i)=>s+mOut(i),0)
+  const n=ti-to
+  const bals=runBal()
+  // Hero + stats
+  function setEl(id,val){const el=document.getElementById(id);if(el)el.textContent=fmt(val)}
+  setEl("heroNet",n)
+  setEl("statIn",ti)
+  setEl("statOut",to)
+  setEl("statBal",bals[3])
+  const heroEl=document.getElementById("heroNet")
+  if(heroEl)heroEl.className="hero-amount "+(n>=0?"pos":"neg")
+  const balEl=document.getElementById("statBal")
+  if(balEl)balEl.style.color=bals[3]>=0?"var(--blue)":"var(--red)"
+  // Balance strip
+  const br=document.getElementById("balanceRow");if(br){br.innerHTML="";bals.forEach((b,i)=>{const d=document.createElement("div");d.className="bal-card"+(i===bals.length-1?" active":"");d.innerHTML=`<div class="bal-month">${MONTHS[i]}</div><div class="bal-val ${b>=0?"pos":"neg"}">${fmt(b)}</div>`;br.appendChild(d)})}
+  // Monthly net rows inside expanded month bodies
+  updateNets()
+  // Chart
+  buildChart()
+}
+
+function buildChart(){
+  const inc=MONTHS.map((_,i)=>Math.round(mIn(i)))
+  const obl=MONTHS.map((_,i)=>Math.round(mOut(i)))
+  const net=MONTHS.map((_,i)=>Math.round(mNet(i)))
+  if(chart){chart.data.datasets[0].data=inc;chart.data.datasets[1].data=obl.map(v=>-v);if(chart.data.datasets[2])chart.data.datasets[2].data=net;chart.update("none")}
 }
 
 function updateNets(){
@@ -1224,6 +1275,39 @@ function copyPitch(){
 }
 
 init()
+
+// ── LIVE SYNC: poll Supabase every 30s for changes from other devices ──
+let lastSyncHash = ""
+function getStateHash(){
+  return JSON.stringify({
+    income:state.income,obligations:state.obligations,
+    pending:state.pending,goals:state.goals,
+    expenses:state.expenses,reinvestments:state.reinvestments
+  })
+}
+async function pollForUpdates(){
+  try{
+    const rows=await sbGet("cashflow","key=eq.state&select=value")
+    if(!rows||!rows[0]||!rows[0].value)return
+    const remote=rows[0].value
+    const remoteHash=JSON.stringify({
+      income:remote.income,obligations:remote.obligations,
+      pending:remote.pending,goals:remote.goals,
+      expenses:remote.expenses,reinvestments:remote.reinvestments
+    })
+    if(remoteHash!==lastSyncHash&&remoteHash!==getStateHash()){
+      // Remote has newer data — merge it in
+      Object.keys(remote).forEach(k=>{if(remote[k]!==undefined)state[k]=remote[k]})
+      lastSyncHash=remoteHash
+      renderAll(false)
+      setSave("synced from "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}))
+    }
+  }catch(e){}
+}
+// Poll every 30 seconds
+setInterval(pollForUpdates, 30000)
+// Also poll when tab becomes visible again (switching from another device)
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)pollForUpdates()})
 
 // Progress arc
 function renderProgressArc(){
