@@ -757,7 +757,12 @@ async function init(){
   try{
     const[sr,kr]=await Promise.all([sbGet("cashflow","key=eq.state&select=value"),sbGet("settings","key=eq.anthropic_key&select=value")])
     if(kr&&kr[0])anthropicKey=kr[0].value
-    if(sr&&sr[0]&&sr[0].value){const s=sr[0].value;Object.keys(DEFAULT).forEach(k=>{if(s[k]!==undefined)state[k]=s[k]})}
+    if(sr&&sr[0]&&sr[0].value){
+      const s=sr[0].value
+      Object.keys(DEFAULT).forEach(k=>{if(s[k]!==undefined)state[k]=s[k]})
+      // Set hash after loading so first poll doesn't false-positive trigger
+      setTimeout(()=>lastSyncHash=getStateHash(),100)
+    }
     else await save()
     setSave("synced")
   }catch(e){setSave("offline")}
@@ -775,7 +780,22 @@ async function save(){
   }catch(e){setSave("error")}
 }
 function autoSave(){clearTimeout(saveTimer);setSave("saving...");saveTimer=setTimeout(save,1200)}
-function setSave(s){const p=document.getElementById("savePill"),t=document.getElementById("saveText");if(s==="saved"||s==="synced"){p.classList.add("saved");t.textContent=s==="synced"?"Synced":"Saved "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});setTimeout(()=>{p.classList.remove("saved");t.textContent="Auto-saved"},2500)}else{p.classList.remove("saved");t.textContent=s}}
+function setSave(s){
+  const p=document.getElementById("savePill"),t=document.getElementById("saveText")
+  if(!p||!t)return
+  if(s==="saved"||s==="synced"){
+    p.classList.add("saved")
+    t.textContent=s==="synced"?"Synced":"Saved "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})
+    setTimeout(()=>{p.classList.remove("saved");t.textContent="Auto-saved"},3000)
+  } else if(s.startsWith("synced from")){
+    p.classList.add("saved")
+    t.textContent=s
+    setTimeout(()=>{p.classList.remove("saved");t.textContent="Live"},3000)
+  } else {
+    p.classList.remove("saved")
+    t.textContent=s
+  }
+}
 
 function toast(msg,type){const t=document.getElementById("toast");t.textContent=msg;t.className="toast show "+(type||"");setTimeout(()=>t.className="toast "+(type||""),2500)}
 
@@ -1279,33 +1299,56 @@ init()
 // ── LIVE SYNC: poll Supabase every 30s for changes from other devices ──
 let lastSyncHash = ""
 function getStateHash(){
-  return JSON.stringify({
-    income:state.income,obligations:state.obligations,
-    pending:state.pending,goals:state.goals,
-    expenses:state.expenses,reinvestments:state.reinvestments
-  })
+  try{
+    return JSON.stringify({
+      income:state.income,obligations:state.obligations,
+      pending:state.pending||[],goals:state.goals||[],
+      expenses:state.expenses||[],reinvestments:state.reinvestments||[]
+    })
+  }catch(e){return ""}
 }
 async function pollForUpdates(){
   try{
     const rows=await sbGet("cashflow","key=eq.state&select=value")
     if(!rows||!rows[0]||!rows[0].value)return
     const remote=rows[0].value
+    const currentHash=getStateHash()
     const remoteHash=JSON.stringify({
       income:remote.income,obligations:remote.obligations,
-      pending:remote.pending,goals:remote.goals,
-      expenses:remote.expenses,reinvestments:remote.reinvestments
+      pending:remote.pending||[],goals:remote.goals||[],
+      expenses:remote.expenses||[],reinvestments:remote.reinvestments||[]
     })
-    if(remoteHash!==lastSyncHash&&remoteHash!==getStateHash()){
-      // Remote has newer data — merge it in
-      Object.keys(remote).forEach(k=>{if(remote[k]!==undefined)state[k]=remote[k]})
-      lastSyncHash=remoteHash
-      renderAll(false)
-      setSave("synced from "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}))
+    // Only update if remote is genuinely different from what we have
+    if(remoteHash!==currentHash){
+      // Check we're not just seeing our own recent save
+      if(remoteHash!==lastSyncHash){
+        Object.keys(remote).forEach(k=>{if(remote[k]!==undefined)state[k]=remote[k]})
+        lastSyncHash=remoteHash
+        renderAll(false)
+        showSyncToast()
+      }
     }
-  }catch(e){}
+  }catch(e){console.log("Poll error:",e)}
+}
+
+function showSyncToast(){
+  const t=document.getElementById("toast")
+  if(!t)return
+  t.textContent="↓ Synced from other device"
+  t.className="toast show green"
+  setTimeout(()=>t.className="toast",2500)
+}
+
+// Manual sync - tap the sync button in topbar
+async function manualSync(){
+  const btn=document.getElementById("syncBtn")
+  if(btn){btn.textContent="⟳";btn.style.opacity=".6"}
+  lastSyncHash="" // Force re-check
+  await pollForUpdates()
+  if(btn){btn.textContent="↓";btn.style.opacity="1"}
 }
 // Poll every 30 seconds
-setInterval(pollForUpdates, 30000)
+setInterval(pollForUpdates, 15000)
 // Also poll when tab becomes visible again (switching from another device)
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)pollForUpdates()})
 
