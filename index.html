@@ -764,8 +764,8 @@ async function init(){
       const s = sr[0].value
       const keys = ["income","obligations","pending","goals","expenses","reinvestments","notes","open"]
       keys.forEach(function(k){ if(s[k] !== undefined) state[k] = s[k] })
-      // Remember this timestamp so we don't re-apply our own loaded data
-      if(s.saved_at) lastSeenTimestamp = s.saved_at
+      // Store version so poller knows what we already have
+      localVersion = s._v || 0
     }
     else await save()
     setSave("synced")
@@ -778,10 +778,9 @@ async function init(){
 
 async function save(){
   try{
-    const ts = Date.now()
-    const payload = Object.assign({}, state, {saved_at: ts})
+    localVersion = (localVersion || 0) + 1
+    const payload = Object.assign({}, state, {_v: localVersion})
     await sbUpsert("cashflow", {key:"state", value:payload})
-    lastSeenTimestamp = ts  // Mark this as our own save so we don't re-apply it
     setSave("saved")
   } catch(e){ setSave("error") }
 }
@@ -858,14 +857,13 @@ function renderPending(){
     return
   }
 
-  // Sort: pending by date first, received at bottom
-  const items = state.pending.map((p, i) => ({...p, idx: i}))
-  items.sort((a, b) => {
+  const items = state.pending.map(function(p,i){ return Object.assign({},p,{idx:i}) })
+  items.sort(function(a,b){
     if(!!a.received !== !!b.received) return a.received ? 1 : -1
     return new Date(a.date) - new Date(b.date)
   })
 
-  items.forEach(function(p) {
+  items.forEach(function(p){
     const i = p.idx
     const d = new Date(p.date)
     const diff = Math.ceil((d - today) / (1000*60*60*24))
@@ -874,39 +872,101 @@ function renderPending(){
     const dotColor = received ? 'var(--green)' : 'var(--orange)'
 
     let badge = ''
-    if(received) badge = '<span style="font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;background:rgba(50,215,75,.08);color:var(--green);border:.5px solid rgba(50,215,75,.2);">✓ Received</span>'
-    else if(diff === 0) badge = '<span style="font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;background:rgba(255,214,10,.08);color:var(--amber);border:.5px solid rgba(255,214,10,.2);">Today!</span>'
-    else if(diff < 0) badge = '<span style="font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;background:rgba(255,69,58,.08);color:var(--red);border:.5px solid rgba(255,69,58,.2);">Overdue</span>'
-    else if(diff <= 5) badge = '<span style="font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;background:rgba(255,214,10,.08);color:var(--amber);border:.5px solid rgba(255,214,10,.2);">Due soon</span>'
-    else badge = '<span style="font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;background:rgba(10,132,255,.08);color:var(--blue);border:.5px solid rgba(10,132,255,.18);">Pending</span>'
+    if(received)       badge = '<span style="font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;background:rgba(50,215,75,.08);color:var(--green);border:.5px solid rgba(50,215,75,.2);">✓ Received</span>'
+    else if(diff===0)  badge = '<span style="font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;background:rgba(255,214,10,.08);color:var(--amber);border:.5px solid rgba(255,214,10,.2);">Today!</span>'
+    else if(diff<0)    badge = '<span style="font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;background:rgba(255,69,58,.08);color:var(--red);border:.5px solid rgba(255,69,58,.2);">Overdue</span>'
+    else if(diff<=5)   badge = '<span style="font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;background:rgba(255,214,10,.08);color:var(--amber);border:.5px solid rgba(255,214,10,.2);">Due soon</span>'
+    else               badge = '<span style="font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;background:rgba(10,132,255,.08);color:var(--blue);border:.5px solid rgba(10,132,255,.18);">Pending</span>'
 
     const row = document.createElement('div')
     row.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;padding:14px 0;border-bottom:.5px solid rgba(255,255,255,.05);'
 
-    // LEFT side
+    // LEFT — editable name
     const left = document.createElement('div')
     left.style.cssText = 'display:flex;align-items:flex-start;gap:11px;flex:1;min-width:0;'
-    left.innerHTML = '<div style="width:9px;height:9px;border-radius:50%;background:' + dotColor + ';flex-shrink:0;margin-top:5px;box-shadow:0 0 6px ' + dotColor + '88;"></div>'
+
+    const dot = document.createElement('div')
+    dot.style.cssText = 'width:9px;height:9px;border-radius:50%;background:'+dotColor+';flex-shrink:0;margin-top:5px;box-shadow:0 0 6px '+dotColor+'88;'
+
     const nameWrap = document.createElement('div')
     nameWrap.style.minWidth = '0'
-    nameWrap.innerHTML = '<div style="font-size:14px;font-weight:600;color:#fff;letter-spacing:-.01em;">' + p.name + '</div>'
-      + '<div style="font-size:12px;font-weight:500;color:rgba(255,255,255,.65);margin-top:3px;">' + d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'}) + '</div>'
-      + (p.note ? '<div style="font-size:11px;color:var(--text3);margin-top:2px;font-style:italic;">' + p.note + '</div>' : '')
+
+    // Editable name input
+    const nameInput = document.createElement('input')
+    nameInput.type = 'text'
+    nameInput.value = p.name
+    nameInput.style.cssText = 'font-size:14px;font-weight:600;color:#fff;letter-spacing:-.01em;background:transparent;border:none;outline:none;width:100%;font-family:inherit;padding:0;'
+    nameInput.addEventListener('change', (function(idx){ return function(){ state.pending[idx].name=this.value; autoSave() } })(i))
+    nameInput.addEventListener('focus', function(){ this.style.borderBottom='.5px solid rgba(255,255,255,.2)' })
+    nameInput.addEventListener('blur', function(){ this.style.borderBottom='none' })
+
+    const dateDiv = document.createElement('div')
+    dateDiv.style.cssText = 'font-size:12px;font-weight:500;color:rgba(255,255,255,.65);margin-top:3px;'
+    dateDiv.textContent = d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})
+
+    const noteDiv = document.createElement('div')
+    if(p.note){ noteDiv.style.cssText='font-size:11px;color:var(--text3);margin-top:2px;font-style:italic;'; noteDiv.textContent=p.note }
+
+    nameWrap.appendChild(nameInput)
+    nameWrap.appendChild(dateDiv)
+    if(p.note) nameWrap.appendChild(noteDiv)
+    left.appendChild(dot)
     left.appendChild(nameWrap)
 
-    // RIGHT side
+    // RIGHT — editable amount
     const right = document.createElement('div')
     right.style.cssText = 'flex-shrink:0;margin-left:14px;text-align:right;'
 
-    const amt = document.createElement('div')
-    amt.style.cssText = 'font-size:16px;font-weight:700;letter-spacing:-.02em;color:' + amtColor + ';'
-    amt.textContent = fmt(p.amount)
+    // Editable amount — shows as styled text, tap to edit
+    const amtWrap = document.createElement('div')
+    amtWrap.style.cssText = 'position:relative;display:inline-block;'
+
+    const amtDisplay = document.createElement('div')
+    amtDisplay.style.cssText = 'font-size:16px;font-weight:700;letter-spacing:-.02em;color:'+amtColor+';cursor:pointer;'
+    amtDisplay.textContent = fmt(p.amount)
+    amtDisplay.title = 'Tap to edit'
+
+    const amtInput = document.createElement('input')
+    amtInput.type = 'number'
+    amtInput.value = p.amount
+    amtInput.inputMode = 'decimal'
+    amtInput.style.cssText = 'font-size:16px;font-weight:700;color:'+amtColor+';background:rgba(255,255,255,.06);border:.5px solid '+amtColor+';border-radius:6px;outline:none;width:90px;text-align:right;padding:2px 6px;font-family:inherit;display:none;'
+
+    amtDisplay.addEventListener('click', function(){
+      amtDisplay.style.display = 'none'
+      amtInput.style.display = 'block'
+      amtInput.focus()
+      amtInput.select()
+    })
+    amtInput.addEventListener('blur', (function(idx, disp, inp, color){ return function(){
+      const val = parseFloat(inp.value) || 0
+      state.pending[idx].amount = val
+      disp.textContent = fmt(val)
+      disp.style.display = 'block'
+      inp.style.display = 'none'
+      updateSummaryOnly()
+      autoSave()
+    } })(i, amtDisplay, amtInput, amtColor))
+    amtInput.addEventListener('keydown', function(e){ if(e.key==='Enter') this.blur() })
+
+    amtWrap.appendChild(amtDisplay)
+    amtWrap.appendChild(amtInput)
+
+    // Color toggle button — tap to switch orange/green
+    const colorBtn = document.createElement('button')
+    colorBtn.textContent = received ? '🟢' : '🟠'
+    colorBtn.title = 'Toggle pending/received color'
+    colorBtn.style.cssText = 'background:none;border:none;cursor:pointer;font-size:14px;padding:0;margin-left:4px;vertical-align:middle;'
+    colorBtn.onclick = (function(idx){ return function(e){
+      e.stopPropagation()
+      if(state.pending[idx].received){ state.pending[idx].received=false } else { markReceived(idx); return }
+      renderPending(); autoSave()
+    } })(i)
 
     const actions = document.createElement('div')
     actions.style.cssText = 'display:flex;gap:6px;justify-content:flex-end;align-items:center;margin-top:6px;flex-wrap:wrap;'
     actions.innerHTML = badge
 
-    // Mark received button
     if(!received){
       const markBtn = document.createElement('button')
       markBtn.textContent = 'Received'
@@ -915,17 +975,16 @@ function renderPending(){
       actions.appendChild(markBtn)
     }
 
-    // Delete button - using closure to capture correct index
     const delBtn = document.createElement('button')
     delBtn.textContent = '✕'
     delBtn.title = 'Delete'
     delBtn.style.cssText = 'background:none;border:none;color:rgba(255,255,255,.25);cursor:pointer;font-size:14px;padding:2px 5px;border-radius:5px;line-height:1;'
     delBtn.onmouseover = function(){ this.style.color='var(--red)'; this.style.background='rgba(255,69,58,.1)' }
-    delBtn.onmouseout = function(){ this.style.color='rgba(255,255,255,.25)'; this.style.background='none' }
+    delBtn.onmouseout  = function(){ this.style.color='rgba(255,255,255,.25)'; this.style.background='none' }
     delBtn.onclick = (function(idx){ return function(e){ e.stopPropagation(); deletePending(idx) } })(i)
     actions.appendChild(delBtn)
 
-    right.appendChild(amt)
+    right.appendChild(amtWrap)
     right.appendChild(actions)
 
     row.appendChild(left)
@@ -1471,34 +1530,33 @@ init()
 
 // ── LIVE SYNC: poll Supabase every 30s for changes from other devices ──
 // ── SYNC ENGINE ──
-// Uses a simple timestamp-based approach: every save writes a timestamp
-// The poller compares timestamps to detect changes from other devices
+// Simple version-number approach: every save increments a counter
+// Poller checks if remote version > local version
 
-let lastSeenTimestamp = 0
+let localVersion = 0
 
 async function pollForUpdates(){
   try{
-    const rows = await sbGet("cashflow", "key=eq.state&select=value")
+    const rows = await sbGet("cashflow","key=eq.state&select=value")
     if(!rows || !rows[0] || !rows[0].value) return
     const remote = rows[0].value
+    const remoteVersion = remote._v || 0
 
-    // Use saved_at timestamp to detect if remote is newer
-    const remoteTs = remote.saved_at || 0
-    if(remoteTs > lastSeenTimestamp && remoteTs !== lastSeenTimestamp){
-      // Remote has a newer save — apply it
-      lastSeenTimestamp = remoteTs
+    if(remoteVersion > localVersion){
+      // Newer version on server — pull it
+      localVersion = remoteVersion
       const keys = ["income","obligations","pending","goals","expenses","reinvestments","notes","open"]
       keys.forEach(function(k){ if(remote[k] !== undefined) state[k] = remote[k] })
       renderAll(false)
       showSyncToast()
     }
-  } catch(e){ /* silent fail */ }
+  }catch(e){ /* silent */ }
 }
 
 function showSyncToast(){
   const t = document.getElementById("toast")
   if(!t) return
-  t.textContent = "↓ Synced from other device"
+  t.textContent = "↓ Updated from other device"
   t.className = "toast show green"
   setTimeout(function(){ t.className = "toast" }, 2500)
 }
@@ -1506,39 +1564,91 @@ function showSyncToast(){
 async function manualSync(){
   const btn = document.getElementById("syncBtn")
   if(btn){ btn.textContent = "⟳"; btn.style.opacity = ".5" }
-  lastSeenTimestamp = 0 // Force accept whatever is in Supabase
+  localVersion = 0 // Reset so we always pull latest
   await pollForUpdates()
   if(btn){ btn.textContent = "↓"; btn.style.opacity = "1" }
+  if(!document.getElementById("toast").className.includes("show")){
+    showToastMsg("Already up to date","")
+  }
+}
+
+function showToastMsg(msg, type){
+  const t = document.getElementById("toast")
+  if(!t) return
+  t.textContent = msg
+  t.className = "toast show " + (type||"")
+  setTimeout(function(){ t.className = "toast" }, 2000)
 }
 
 // Poll every 10 seconds
 setInterval(pollForUpdates, 10000)
-// Sync immediately when switching back to the tab
+// Sync immediately when switching back to this tab/app
 document.addEventListener("visibilitychange", function(){
   if(!document.hidden) pollForUpdates()
 })
-
+// Also sync on focus (iPhone home screen app switching)
+window.addEventListener("focus", pollForUpdates)
 // Progress arc
 function renderProgressArc(){
-  const canvas=document.getElementById("arcCanvas");if(!canvas)return
-  const ctx=canvas.getContext("2d")
-  const start=new Date(2026,4,1),end=new Date(2026,7,31),now=new Date()
-  const total=end-start,elapsed=Math.min(Math.max(now-start,0),total)
-  const pct=elapsed/total
-  const cx=30,cy=30,r=24,lineW=5
-  ctx.clearRect(0,0,60,60)
-  // Track
-  ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,Math.PI*1.5);ctx.strokeStyle="rgba(255,255,255,.08)";ctx.lineWidth=lineW;ctx.lineCap="round";ctx.stroke()
-  // Fill
-  const grad=ctx.createLinearGradient(0,0,60,60);grad.addColorStop(0,"#32d74b");grad.addColorStop(1,"#0a84ff")
-  ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+Math.PI*2*pct);ctx.strokeStyle=grad;ctx.lineWidth=lineW;ctx.lineCap="round";ctx.stroke()
-  // Pct text
-  ctx.fillStyle="#f5f5f7";ctx.font="bold 11px -apple-system";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(Math.round(pct*100)+"%",cx,cy)
-  // Info
-  const daysLeft=Math.max(0,Math.ceil((end-now)/(1000*60*60*24)))
-  const arcTitle=document.getElementById("arcTitle"),arcSub=document.getElementById("arcSub")
-  if(arcTitle)arcTitle.textContent=Math.round(pct*100)+"% of plan complete"
-  if(arcSub)arcSub.textContent=daysLeft+" days remaining · Aug 31"
+  const canvas = document.getElementById("arcCanvas")
+  if(!canvas) return
+
+  // High-DPI support
+  const dpr = window.devicePixelRatio || 1
+  const size = 64
+  canvas.width = size * dpr
+  canvas.height = size * dpr
+  canvas.style.width = size + 'px'
+  canvas.style.height = size + 'px'
+
+  const ctx = canvas.getContext("2d")
+  ctx.scale(dpr, dpr)
+
+  const cx = size/2, cy = size/2, r = 26, lw = 5
+  const planStart = new Date(2026,4,1)  // May 1
+  const planEnd   = new Date(2026,7,31) // Aug 31
+  const now = new Date()
+  const total = planEnd - planStart
+  const elapsed = Math.min(Math.max(now - planStart, 0), total)
+  const pct = elapsed / total
+  const startAngle = -Math.PI / 2
+  const endAngle = startAngle + (Math.PI * 2 * pct)
+  const daysLeft = Math.max(0, Math.ceil((planEnd - now) / (1000*60*60*24)))
+
+  ctx.clearRect(0, 0, size, size)
+
+  // Track (background ring)
+  ctx.beginPath()
+  ctx.arc(cx, cy, r, 0, Math.PI * 2)
+  ctx.strokeStyle = 'rgba(255,255,255,.07)'
+  ctx.lineWidth = lw
+  ctx.stroke()
+
+  // Progress arc
+  if(pct > 0){
+    const grad = ctx.createLinearGradient(0, 0, size, size)
+    grad.addColorStop(0, '#32d74b')
+    grad.addColorStop(1, '#0a84ff')
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, startAngle, endAngle)
+    ctx.strokeStyle = grad
+    ctx.lineWidth = lw
+    ctx.lineCap = 'round'
+    ctx.stroke()
+  }
+
+  // Center text
+  ctx.fillStyle = '#f5f5f7'
+  ctx.font = 'bold 13px -apple-system,BlinkMacSystemFont,sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(Math.round(pct * 100) + '%', cx, cy)
+
+  // Update labels
+  const arcTitle = document.getElementById("arcTitle")
+  const arcSub   = document.getElementById("arcSub")
+  if(arcTitle) arcTitle.textContent = Math.round(pct * 100) + '% of plan complete'
+  if(arcSub)   arcSub.textContent   = daysLeft + ' days remaining · Aug 31'
 }
 
 // Dynamic greeting
