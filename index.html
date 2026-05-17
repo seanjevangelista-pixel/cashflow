@@ -753,23 +753,67 @@ const DEFAULT={
 
 let state=JSON.parse(JSON.stringify(DEFAULT)),anthropicKey="",saveTimer=null,aiHistory=[],firstLoad=true
 
-async function sbGet(t,f){const r=await fetch(SB_URL+"/rest/v1/"+t+(f?"?"+f:""),{headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY}});return r.json()}
-async function sbUpsert(t,d){await fetch(SB_URL+"/rest/v1/"+t,{method:"POST",headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates"},body:JSON.stringify(d)})}
+async function sbGet(t,f){
+  const r=await fetch(SB_URL+"/rest/v1/"+t+(f?"?"+f:""),{
+    headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY}
+  })
+  if(!r.ok){console.error("sbGet error:",r.status,t);return[]}
+  return r.json()
+}
+
+async function sbUpsert(t,d){
+  // Use PATCH to update existing row, POST to insert if missing
+  // First check if row exists
+  const checkUrl=SB_URL+"/rest/v1/"+t+"?key=eq."+d.key
+  const check=await fetch(checkUrl,{
+    headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY}
+  })
+  const rows=await check.json()
+  
+  if(rows && rows.length>0){
+    // Row exists — PATCH it
+    const r=await fetch(SB_URL+"/rest/v1/"+t+"?key=eq."+d.key,{
+      method:"PATCH",
+      headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},
+      body:JSON.stringify({value:d.value})
+    })
+    if(!r.ok){const txt=await r.text();console.error("PATCH error:",r.status,txt)}
+    return r.ok
+  } else {
+    // Row missing — INSERT it
+    const r=await fetch(SB_URL+"/rest/v1/"+t,{
+      method:"POST",
+      headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},
+      body:JSON.stringify(d)
+    })
+    if(!r.ok){const txt=await r.text();console.error("POST error:",r.status,txt)}
+    return r.ok
+  }
+}
 
 async function init(){
   try{
-    const[sr,kr]=await Promise.all([sbGet("cashflow","key=eq.state&select=value"),sbGet("settings","key=eq.anthropic_key&select=value")])
+    const[sr,kr]=await Promise.all([
+      sbGet("cashflow","key=eq.state&select=value"),
+      sbGet("settings","key=eq.anthropic_key&select=value")
+    ])
     if(kr&&kr[0])anthropicKey=kr[0].value
+
     if(sr&&sr[0]&&sr[0].value){
       const s = sr[0].value
+      console.log("Loaded from Supabase, version:", s._v, "pending count:", (s.pending||[]).length)
       const keys = ["income","obligations","pending","goals","expenses","reinvestments","notes","open"]
       keys.forEach(function(k){ if(s[k] !== undefined) state[k] = s[k] })
-      // Store version so poller knows what we already have
       localVersion = s._v || 0
+      setSave("synced")
+    } else {
+      console.log("No saved data found, saving defaults")
+      await save()
     }
-    else await save()
-    setSave("synced")
-  }catch(e){setSave("offline")}
+  }catch(e){
+    console.error("Init error:", e)
+    setSave("offline - check console")
+  }
   const loader=document.getElementById("loader")
   loader.classList.add("hide")
   setTimeout(()=>loader.style.display="none",600)
@@ -779,12 +823,36 @@ async function init(){
 async function save(){
   try{
     localVersion = (localVersion || 0) + 1
-    const payload = Object.assign({}, state, {_v: localVersion})
-    await sbUpsert("cashflow", {key:"state", value:payload})
-    setSave("saved")
-  } catch(e){ setSave("error") }
+    const payload = {
+      income: state.income,
+      obligations: state.obligations,
+      pending: state.pending || [],
+      goals: state.goals || [],
+      expenses: state.expenses || [],
+      reinvestments: state.reinvestments || [],
+      notes: state.notes || ["","","",""],
+      open: state.open || [false,false,false,false],
+      _v: localVersion
+    }
+    const ok = await sbUpsert("cashflow", {key:"state", value:payload})
+    if(ok !== false){
+      setSave("saved")
+      console.log("Saved to Supabase, version:", localVersion)
+    } else {
+      setSave("save failed")
+    }
+  } catch(e){
+    console.error("Save error:", e)
+    setSave("error")
+  }
 }
-function autoSave(){clearTimeout(saveTimer);setSave("saving...");saveTimer=setTimeout(save,1200)}
+function autoSave(){
+  clearTimeout(saveTimer)
+  setSave("saving...")
+  saveTimer=setTimeout(function(){
+    save().catch(function(e){console.error("AutoSave failed:",e)})
+  },1200)
+}
 function setSave(s){
   const p=document.getElementById("savePill"),t=document.getElementById("saveText")
   if(!p||!t)return
