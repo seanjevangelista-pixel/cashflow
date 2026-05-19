@@ -300,6 +300,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px;
   <div class="topbar-right">
     <div class="save-status" id="saveStatus"><span class="save-dot"></span><span id="saveText">Loading</span></div>
     <button class="sync-btn" id="syncBtn" onclick="manualSync()">↓ Sync</button>
+    <button class="sync-btn" onclick="toggleCmd()" style="background:rgba(191,90,242,.1);border-color:rgba(191,90,242,.3);color:#bf5af2">⌘ CMD</button>
     <div class="jason-pill">Jason $51,550</div>
   </div>
 </div>
@@ -491,6 +492,22 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px;
 
 </div><!-- end main -->
 
+<div id="cmdPanel" style="display:none;position:fixed;top:54px;left:0;right:0;z-index:250;background:rgba(8,8,8,.97);border-bottom:.5px solid rgba(191,90,242,.25);backdrop-filter:blur(24px);padding:14px 18px 16px;">
+  <div style="font-size:10px;font-weight:700;color:#bf5af2;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;">⌘ Command</div>
+  <div style="display:flex;gap:8px;margin-bottom:10px;">
+    <input id="cmdInput" style="flex:1;background:rgba(255,255,255,.05);border:.5px solid rgba(191,90,242,.3);border-radius:11px;color:#f5f5f7;font-size:15px;padding:10px 13px;outline:none;font-family:inherit;" placeholder="e.g. add pending Juan 7300 May 25" onkeydown="if(event.key==='Enter')runCmd()">
+    <button onclick="runCmd()" style="background:rgba(191,90,242,.2);border:.5px solid rgba(191,90,242,.4);border-radius:11px;color:#bf5af2;font-size:13px;font-weight:600;padding:10px 18px;cursor:pointer;font-family:inherit;white-space:nowrap;">Run</button>
+  </div>
+  <div id="cmdResult" style="font-size:12px;color:#555;min-height:16px;font-family:monospace;margin-bottom:10px;"></div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px;">
+    <button onclick="document.getElementById('cmdInput').value=this.textContent" style="font-size:10px;padding:4px 10px;border-radius:20px;border:.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#666;cursor:pointer;font-family:inherit;">add pending Juan 7300 May 25</button>
+    <button onclick="document.getElementById('cmdInput').value=this.textContent" style="font-size:10px;padding:4px 10px;border-radius:20px;border:.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#666;cursor:pointer;font-family:inherit;">add expense gas 65</button>
+    <button onclick="document.getElementById('cmdInput').value=this.textContent" style="font-size:10px;padding:4px 10px;border-radius:20px;border:.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#666;cursor:pointer;font-family:inherit;">add May income draw 1500</button>
+    <button onclick="document.getElementById('cmdInput').value=this.textContent" style="font-size:10px;padding:4px 10px;border-radius:20px;border:.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#666;cursor:pointer;font-family:inherit;">remove May income draw</button>
+    <button onclick="document.getElementById('cmdInput').value=this.textContent" style="font-size:10px;padding:4px 10px;border-radius:20px;border:.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#666;cursor:pointer;font-family:inherit;">clear May income</button>
+    <button onclick="document.getElementById('cmdInput').value=this.textContent" style="font-size:10px;padding:4px 10px;border-radius:20px;border:.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#666;cursor:pointer;font-family:inherit;">set May income Juan 7300</button>
+  </div>
+</div>
 <div class="bottom-nav">
   <div class="nav-item active" onclick="navTo('home',this)"><div class="nav-icon">🏠</div><div class="nav-label">Home</div></div>
   <div class="nav-item" onclick="navTo('timeline',this)"><div class="nav-icon">📈</div><div class="nav-label">Timeline</div></div>
@@ -1476,6 +1493,100 @@ async function sendMsg() {
 // ─────────────────────────────────────────
 // START
 // ─────────────────────────────────────────
+function toggleCmd(){
+  const p=document.getElementById("cmdPanel")
+  p.style.display=p.style.display==="none"?"block":"none"
+  if(p.style.display==="block")setTimeout(function(){document.getElementById("cmdInput").focus()},100)
+}
+
+function runCmd(){
+  const raw=document.getElementById("cmdInput").value.trim()
+  const low=raw.toLowerCase()
+  if(!raw)return
+  const res=document.getElementById("cmdResult")
+  function ok(msg){res.textContent="✅ "+msg;res.style.color="#32d74b";document.getElementById("cmdInput").value=""}
+  function err(msg){res.textContent="❌ "+msg;res.style.color="#ff453a"}
+
+  const monthMap={may:0,jun:1,june:1,jul:2,july:2,aug:3,august:3}
+  const MONTHS2=["May","Jun","Jul","Aug"]
+
+  // ADD PENDING: add pending [name] [amount] [month] [day]
+  if(/^add pending/i.test(raw)){
+    const amt=raw.match(/(\d[\d,]*)/);
+    if(!amt){err("Need an amount — e.g. add pending Juan 7300 May 25");return}
+    const amount=parseFloat(amt[1].replace(",",""))
+    const dateM=low.match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+(\d+)/)
+    let date=new Date().toISOString().split("T")[0]
+    if(dateM){const mo={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};const m=mo[dateM[1].substring(0,3)];date="2026-"+(m<10?"0":"")+m+"-"+(parseInt(dateM[2])<10?"0":"")+parseInt(dateM[2])}
+    const name=raw.replace(/add pending/i,"").replace(/\d[\d,]*/,"").replace(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d+/i,"").trim()||"Payment"
+    if(!S.pending)S.pending=[]
+    S.pending.push({name:name.charAt(0).toUpperCase()+name.slice(1),amount:amount,date:date,note:"",received:false})
+    renderPending();renderCountdown();autoSave()
+    ok("Added pending: "+name+" "+fmt(amount)+" on "+date);return
+  }
+
+  // ADD EXPENSE: add expense [name] [amount]
+  if(/^add expense/i.test(raw)){
+    const amt=raw.match(/(\d[\d,]*)/)
+    if(!amt){err("Need amount — e.g. add expense gas 65");return}
+    const amount=parseFloat(amt[1].replace(",",""))
+    const name=raw.replace(/add expense/i,"").replace(/\d[\d,]*/,"").trim()||"Expense"
+    const catMap={gas:"⛽ Gas",food:"🍔 Food",shop:"🛍 Shopping",health:"💊 Health",fun:"🎮 Entertainment",sub:"📱 Subscriptions",travel:"✈️ Travel",house:"🏠 Housing",biz:"💼 Business"}
+    let cat="❓ Other"
+    Object.keys(catMap).forEach(function(k){if(low.includes(k))cat=catMap[k]})
+    if(!S.expenses)S.expenses=[]
+    S.expenses.push({name:name.charAt(0).toUpperCase()+name.slice(1),amount:amount,cat:cat,note:"",date:new Date().toISOString().split("T")[0]})
+    renderExpenses();renderExpenseSummary();autoSave()
+    ok("Logged: "+name+" -"+fmt(amount));return
+  }
+
+  // ADD MONTH INCOME/OBLIGATION: add May income Juan 7300
+  const addM=low.match(/^add\s+(may|jun|june|jul|july|aug|august)\s+(income|obligation)\s+(.+?)\s+(\d[\d,]*)/)
+  if(addM){
+    const mi=monthMap[addM[1]],type=addM[2]==="income"?"income":"obligations"
+    const label=addM[3].trim(),val=parseFloat(addM[4].replace(",",""))
+    S[type][mi].push({label:label.charAt(0).toUpperCase()+label.slice(1),val:val})
+    buildMonths();updateSummaryOnly();autoSave()
+    ok("Added to "+MONTHS2[mi]+" "+type+": "+label+" "+fmt(val));return
+  }
+
+  // REMOVE MONTH INCOME/OBLIGATION: remove May income draw
+  const remM=low.match(/^remove\s+(may|jun|june|jul|july|aug|august)\s+(income|obligation)\s+(.+)/)
+  if(remM){
+    const mi=monthMap[remM[1]],type=remM[2]==="income"?"income":"obligations"
+    const label=remM[3].trim(),arr=S[type][mi]
+    const idx=arr.findIndex(function(r){return r.label.toLowerCase().includes(label)})
+    if(idx===-1){err("Could not find: "+label+" in "+MONTHS2[mi]+" "+type);return}
+    const removed=arr.splice(idx,1)[0]
+    buildMonths();updateSummaryOnly();autoSave()
+    ok("Removed: "+removed.label+" "+fmt(removed.val)+" from "+MONTHS2[mi]);return
+  }
+
+  // SET MONTH VALUE: set May income Juan 7300
+  const setM=low.match(/^set\s+(may|jun|june|jul|july|aug|august)\s+(income|obligation)\s+(.+?)\s+(\d[\d,]*)/)
+  if(setM){
+    const mi=monthMap[setM[1]],type=setM[2]==="income"?"income":"obligations"
+    const label=setM[3].trim(),val=parseFloat(setM[4].replace(",",""))
+    const item=S[type][mi].find(function(r){return r.label.toLowerCase().includes(label)})
+    if(!item){err("Could not find: "+label+" in "+MONTHS2[mi]+" "+type);return}
+    item.val=val
+    buildMonths();updateSummaryOnly();autoSave()
+    ok("Updated "+MONTHS2[mi]+" "+type+": "+item.label+" to "+fmt(val));return
+  }
+
+  // CLEAR: clear May income
+  const clrM=low.match(/^clear\s+(may|jun|june|jul|july|aug|august)\s+(income|obligation)/)
+  if(clrM){
+    const mi=monthMap[clrM[1]],type=clrM[2]==="income"?"income":"obligations"
+    S[type][mi]=[]
+    buildMonths();updateSummaryOnly();autoSave()
+    ok("Cleared all "+MONTHS2[mi]+" "+type);return
+  }
+
+  err("Not sure what you mean. Try: add pending Juan 7300 May 25")
+}
+
+
 init()
 </script>
 </body>
