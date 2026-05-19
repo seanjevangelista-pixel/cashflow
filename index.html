@@ -602,7 +602,7 @@ const DEFAULT = {
 }
 
 let S = JSON.parse(JSON.stringify(DEFAULT))  // live state
-let AKEY = ""
+let AKEY = "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"
 let saveTimer = null
 let localVersion = 0
 let aiHistory = []
@@ -616,14 +616,7 @@ async function init() {
       dbGet("cashflow","key=eq.state&select=value"),
       dbGet("settings","key=eq.anthropic_key&select=value")
     ])
-
-    if(keyRows && keyRows[0]) {
-      // Handle both plain string and jsonb string
-      const raw = keyRows[0].value
-      AKEY = typeof raw === 'string' ? raw : JSON.stringify(raw)
-      AKEY = AKEY.replace(/^"|"$/g,'') // strip quotes if jsonb stored as "sk-ant-..."
-      console.log("✅ API key loaded, starts with:", AKEY.substring(0,20))
-    }
+    console.log("✅ API key ready, starts with:", AKEY.substring(0,20))
 
     if(stateRows && stateRows[0] && stateRows[0].value) {
       const saved = stateRows[0].value
