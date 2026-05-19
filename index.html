@@ -947,18 +947,38 @@ function renderPending() {
     const amtDisplay = document.createElement("div")
     amtDisplay.className = "pi-amount-display"
     amtDisplay.style.color = ac
+    amtDisplay.style.minWidth = "60px"
+    amtDisplay.style.padding = "4px 0"
     amtDisplay.textContent = fmt(p.amount)
-    amtDisplay.title = "Tap to edit"
+    amtDisplay.title = "Tap to edit amount"
     const amtInp = document.createElement("input")
     amtInp.className = "pi-amount-input"
     amtInp.type = "number"
     amtInp.inputMode = "decimal"
     amtInp.value = p.amount
-    amtDisplay.addEventListener("click", function(){ amtDisplay.style.display="none"; amtInp.style.display="block"; amtInp.focus(); amtInp.select() })
-    amtInp.addEventListener("blur", (function(idx, disp, inp){ return function(){
+    // iOS needs touchend not just click for reliable tap
+    function openAmtEdit() { amtDisplay.style.display="none"; amtInp.style.display="block"; setTimeout(function(){ amtInp.focus(); amtInp.select() }, 50) }
+    amtDisplay.addEventListener("click", openAmtEdit)
+    amtDisplay.addEventListener("touchend", function(e){ e.preventDefault(); openAmtEdit() })
+    amtInp.addEventListener("blur", (function(idx, disp, inp, color){ return function(){
       const v = parseFloat(inp.value)||0
-      S.pending[idx].amount=v; disp.textContent=fmt(v); disp.style.display="block"; inp.style.display="none"; autoSave()
-    } })(i, amtDisplay, amtInp))
+      S.pending[idx].amount = v
+      disp.textContent = fmt(v)
+      disp.style.color = color
+      disp.style.display = "block"
+      inp.style.display = "none"
+      // If already received, update the monthly income entry too
+      if(S.pending[idx].received) {
+        const d = new Date(S.pending[idx].date)
+        const mi = d.getMonth() - 4
+        if(mi >= 0 && mi <= 3) {
+          const entry = S.income[mi].find(function(r){ return r.label === S.pending[idx].name+" ✓" })
+          if(entry) entry.val = v
+        }
+      }
+      renderAll(false)
+      autoSave()
+    } })(i, amtDisplay, amtInp, ac))
     amtInp.addEventListener("keydown", function(e){ if(e.key==="Enter") this.blur() })
     amtWrap.appendChild(amtDisplay); amtWrap.appendChild(amtInp)
 
@@ -996,8 +1016,31 @@ function addPending() {
 }
 
 function markReceived(idx) {
-  S.pending[idx].received=true; renderPending(); renderCountdown(); autoSave()
-  launchConfetti(); toast("💸 Payment received!","green")
+  const p = S.pending[idx]
+  p.received = true
+
+  // Figure out which month this payment belongs to
+  const d = new Date(p.date)
+  const month = d.getMonth() // 4=May,5=Jun,6=Jul,7=Aug
+  const monthIdx = month - 4  // 0=May,1=Jun,2=Jul,3=Aug
+
+  if(monthIdx >= 0 && monthIdx <= 3) {
+    // Check if already in income for that month
+    const already = S.income[monthIdx].find(function(r){
+      return r.label === p.name && r.val === p.amount
+    })
+    if(!already) {
+      // Add it to that month's income
+      S.income[monthIdx].push({label: p.name + " ✓", val: p.amount})
+    }
+  }
+
+  renderPending()
+  renderCountdown()
+  renderAll(false)
+  autoSave()
+  launchConfetti()
+  toast("💸 " + p.name + " received — added to " + (MONTHS[monthIdx]||"") + " income","green")
 }
 
 function launchConfetti() {
