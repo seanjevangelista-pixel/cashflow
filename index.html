@@ -1108,7 +1108,7 @@ async function generateAIAlerts() {
   const nets=MONTHS.map((_,i)=>mNet(i)), ti=MONTHS.reduce((s,_,i)=>s+mIn(i),0), to=MONTHS.reduce((s,_,i)=>s+mOut(i),0)
   const pending=(S.pending||[]).filter(p=>!p.received).reduce((s,p)=>s+p.amount,0)
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":AKEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,messages:[{role:"user",content:"Cash flow analysis for Sean Evangelista. Monthly net: "+MONTHS.map((m,i)=>m+": "+fmt(nets[i])).join(", ")+". 4-mo net: "+fmt(ti-to)+". Pending incoming: "+fmt(pending)+". Debts: Jason $51,550 ($3k/mo), Anthony V $2,250. Reinvest: $3k to $6k Jun, $9k to $27k Aug-Dec. Generate 2 specific actionable alerts. Respond ONLY with JSON array: [{\"icon\":\"emoji\",\"title\":\"title\",\"message\":\"detail\",\"type\":\"warning or success or info or danger\"}]"}]})})
+    const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":AKEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:300,messages:[{role:"user",content:"Cash flow analysis for Sean Evangelista. Monthly net: "+MONTHS.map((m,i)=>m+": "+fmt(nets[i])).join(", ")+". 4-mo net: "+fmt(ti-to)+". Pending incoming: "+fmt(pending)+". Debts: Jason $51,550 ($3k/mo), Anthony V $2,250. Reinvest: $3k to $6k Jun, $9k to $27k Aug-Dec. Generate 2 specific actionable alerts. Respond ONLY with JSON array: [{\"icon\":\"emoji\",\"title\":\"title\",\"message\":\"detail\",\"type\":\"warning or success or info or danger\"}]"}]})})
     const d=await res.json(), text=d.content&&d.content[0]?d.content[0].text:""
     const match=text.match(/\[[\s\S]*?\]/)
     if(!match) return
@@ -1448,7 +1448,7 @@ async function sendMsg() {
   msgs.scrollTop=msgs.scrollHeight
   aiHistory.push({role:"user",content:msg})
   try {
-    const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":AKEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,system:buildContext(),messages:aiHistory})})
+    const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":AKEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:400,system:buildContext(),messages:aiHistory})})
     if(!res.ok){
       const errText = await res.text()
       console.error("API error:", res.status, errText)
