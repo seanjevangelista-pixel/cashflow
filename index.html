@@ -301,7 +301,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px;
     <div class="save-status" id="saveStatus"><span class="save-dot"></span><span id="saveText">Loading</span></div>
     <button class="sync-btn" id="syncBtn" onclick="manualSync()">↓ Sync</button>
     <button class="sync-btn" onclick="toggleCmd()" style="background:rgba(191,90,242,.1);border-color:rgba(191,90,242,.3);color:#bf5af2">⌘ CMD</button>
-    <div class="jason-pill">Jason $51,550</div>
+    <div class="jason-pill" id="jasonPill">Jason $73,050</div>
   </div>
 </div>
 
@@ -611,6 +611,12 @@ const DEFAULT = {
     [{label:"Jason x2",val:3000},{label:"Beto final",val:380},{label:"Kris final",val:1700},{label:"Anthony V x2",val:500}],
     [{label:"Jason x2",val:3000},{label:"Anthony V x2",val:500}]
   ],
+  investments: [
+    [],
+    [],
+    [],
+    []
+  ],
   pending: [
     {name:"Juan May payouts",amount:7300,date:"2026-05-25",received:false,note:"From Juan deal"},
     {name:"$16,670 draw #2",amount:1500,date:"2026-06-01",received:false,note:""},
@@ -676,7 +682,7 @@ async function init() {
       const saved = stateRows[0].value
       console.log("✅ Loaded from Supabase, version:", saved._v, "| pending:", (saved.pending||[]).length)
       // Merge saved data into state
-      const keys = ["income","obligations","pending","goals","expenses","reinvestments","notes","open","debts","tlEvents","_v"]
+      const keys = ["income","investments","obligations","pending","goals","expenses","reinvestments","notes","open","debts","tlEvents","_v"]
       keys.forEach(k => { if(saved[k] !== undefined) S[k] = saved[k] })
       localVersion = saved._v || 0
       setSave("synced")
@@ -755,7 +761,7 @@ async function pollSync() {
     if(rv > localVersion) {
       console.log("📥 Remote is newer:", rv, "vs local:", localVersion)
       localVersion = rv
-      const keys = ["income","obligations","pending","goals","expenses","reinvestments","notes","open","debts","tlEvents"]
+      const keys = ["income","investments","obligations","pending","goals","expenses","reinvestments","notes","open","debts","tlEvents"]
       keys.forEach(k => { if(remote[k] !== undefined) S[k] = remote[k] })
       renderAll(false)
       toast("↓ Synced from other device","green")
@@ -827,11 +833,57 @@ function setGreeting() {
 // MATH
 // ─────────────────────────────────────────
 const MONTHS = ["May","Jun","Jul","Aug"]
-const BADGES = ["Payout month","Beto cleared","Kris cleared","Reinvest returns"]
+const BADGES_DEFAULT = ["Payout month","Jun milestone","Kris cleared","Reinvest returns"]
+
+function getMonthBadges(i) {
+  var badges = []
+  var net = mNet(i)
+  var allNets = MONTHS.map(function(_,j){ return mNet(j) })
+  var maxNet = Math.max.apply(null, allNets)
+
+  // 💸 Payout month — always show for the default badge
+  if(i === 0) badges.push({text:"💸 Payout month", cls:"tag-g"})
+
+  // 👑 Best month
+  if(net === maxNet && net > 0) badges.push({text:"👑 Best month", cls:"tag-g"})
+
+  // 📈 Investment active
+  if(S.investments && S.investments[i] && S.investments[i].length > 0)
+    badges.push({text:"📈 Invested", cls:"tag-b"})
+
+  // 🎉 Debt cleared — check if any debt hits 100% this month
+  if(S.debts) {
+    S.debts.forEach(function(d){
+      if(d.paid >= d.total && d.total > 0) badges.push({text:"🎉 "+d.name+" cleared", cls:"tag-g"})
+    })
+  }
+
+  // 🔥 All obligations met — net is positive and no debt obligations
+  var hasObl = S.obligations[i] && S.obligations[i].length > 0
+  if(hasObl && net > 0) badges.push({text:"🔥 Obligations met", cls:"tag-g"})
+
+  // 🃏 Custom deal badge — if any income/investment label contains "pokemon" or "deal"
+  var allRows = (S.income[i]||[]).concat(S.investments&&S.investments[i]||[])
+  allRows.forEach(function(r){
+    var label = (r.label||r.name||"").toLowerCase()
+    if(label.includes("pokemon") || label.includes("pokémon")) badges.push({text:"🃏 Pokémon", cls:"tag-p"})
+    if(label.includes("walmart")) badges.push({text:"🏪 Walmart deal", cls:"tag-b"})
+  })
+
+  // Fallback — show default if no badges
+  if(badges.length === 0) badges.push({text:BADGES_DEFAULT[i]||"Month "+MONTHS[i], cls: net>=0?"tag-g":"tag-r"})
+
+  return badges
+}
 
 function fmt(n) { return (n<0?"-$":"$") + Math.abs(Math.round(n)).toLocaleString() }
-function mIn(i) { return S.income[i].reduce((s,x) => s+(parseFloat(x.val)||0), 0) }
-function mOut(i) { return S.obligations[i].reduce((s,x) => s+(parseFloat(x.val)||0), 0) }
+function mIn(i) {
+  var income = S.income[i].reduce(function(s,x){ return s+(parseFloat(x.val)||0) }, 0)
+  var invReturns = (S.investments&&S.investments[i]||[]).reduce(function(s,x){ return s+(parseFloat(x.principal)||0)+(parseFloat(x.profit)||0) }, 0)
+  return income + invReturns
+}
+function mOut(i) { return S.obligations[i].reduce(function(s,x){ return s+(parseFloat(x.val)||0) }, 0) }
+function mInv(i) { return (S.investments&&S.investments[i]||[]).reduce(function(s,x){ return s+(parseFloat(x.deployed)||0) }, 0) }
 function mNet(i) { return mIn(i) - mOut(i) }
 function runBal() { let b=0; return MONTHS.map((_,i) => { b+=mNet(i); return b }) }
 
@@ -839,6 +891,7 @@ function runBal() { let b=0; return MONTHS.map((_,i) => { b+=mNet(i); return b }
 // RENDER ALL
 // ─────────────────────────────────────────
 function renderAll(animate) {
+  syncDebtsFromObligations()
   renderHero(animate)
   renderBalance()
   renderCountdown()
@@ -1196,23 +1249,144 @@ function renderChart() {
 // ─────────────────────────────────────────
 // DEBTS
 // ─────────────────────────────────────────
-function renderDebts() {
-  const list=document.getElementById("debtList"); list.innerHTML=""
-  // Use state.debts so payments persist and update
-  if(!S.debts) S.debts=[
-    {name:"Beto",total:3380,paid:3380,color:"#ffd60a",cleared:"Jul 2026"},
-    {name:"Kris",total:3000,paid:3000,color:"#bf5af2",cleared:"Jul 2026"},
-    {name:"Anthony V",total:4250,paid:2000,color:"#0a84ff",cleared:"Jan 2027"},
-    {name:"Jason",total:73050,paid:21550,color:"#ff453a",cleared:"~2 years"}
-  ]
-  const debts = S.debts
-  debts.forEach((d,idx)=>{
-    const pct=Math.min((d.paid/d.total)*100,100), rem=Math.max(d.total-d.paid,0)
-    const el=document.createElement("div"); el.className="debt-item"
-    el.innerHTML='<div class="debt-top"><div class="debt-name" style="color:'+d.color+'">'+d.name+'</div><div style="display:flex;align-items:center;gap:8px"><div class="debt-pct" style="color:'+d.color+'">'+Math.round(pct)+'%</div><div class="debt-rem">'+(rem===0?"CLEARED":fmt(rem)+" left")+'</div></div></div><div class="bar-track"><div class="bar-fill" id="df-'+idx+'" style="background:'+d.color+';width:0;box-shadow:0 0 6px '+d.color+'55"></div></div><div style="display:flex;justify-content:space-between;margin-top:5px;font-size:10px;color:var(--text3)"><span>'+Math.round(pct)+'% paid</span><span>clears '+d.cleared+'</span></div>'
-    list.appendChild(el)
-    setTimeout(()=>{ const f=document.getElementById("df-"+idx); if(f) f.style.width=pct+"%" }, 100+idx*80)
+function calcPayoffDate(debt) {
+  const remaining = Math.max(debt.total - debt.paid, 0)
+  if(remaining <= 0) return "CLEARED"
+
+  // Calculate average monthly payment from obligations
+  var totalPaid = 0, monthsWithPayments = 0
+  var keyword = debt.name.toLowerCase().split(" ")[0]
+  S.obligations.forEach(function(monthObls) {
+    var monthTotal = 0
+    monthObls.forEach(function(obl) {
+      if((obl.label||"").toLowerCase().includes(keyword)) {
+        monthTotal += parseFloat(obl.val)||0
+      }
+    })
+    if(monthTotal > 0) { totalPaid += monthTotal; monthsWithPayments++ }
   })
+
+  var avgMonthly = monthsWithPayments > 0 ? totalPaid / monthsWithPayments : 0
+  if(avgMonthly <= 0) return "Set payments in obligations"
+
+  var monthsLeft = Math.ceil(remaining / avgMonthly)
+  var d = new Date()
+  d.setMonth(d.getMonth() + monthsLeft)
+  return d.toLocaleDateString("en-US",{month:"short",year:"numeric"})
+}
+
+function renderDebts() {
+  const list = document.getElementById("debtList")
+  list.innerHTML = ""
+
+  if(!S.debts) S.debts = [
+    {name:"Jason",     total:73050, paid:0, basePaid:0, color:"#ff453a"},
+    {name:"Anthony V", total:4250,  paid:0, basePaid:0, color:"#0a84ff"},
+    {name:"Beto",      total:3380,  paid:0, basePaid:0, color:"#ffd60a"},
+    {name:"Kris",      total:3000,  paid:0, basePaid:0, color:"#bf5af2"}
+  ]
+  // Ensure basePaid exists on any existing debts from old state
+  S.debts.forEach(function(d){ if(d.basePaid === undefined) d.basePaid = 0 })
+
+  S.debts.forEach(function(d, idx) {
+    const rem = Math.max(d.total - d.paid, 0)
+    const pct = Math.min((d.paid / d.total) * 100, 100)
+    const cleared = rem === 0
+    const payoffDate = cleared ? "CLEARED 🎉" : calcPayoffDate(d)
+
+    const el = document.createElement("div")
+    el.className = "debt-item"
+
+    // Top row — name + pct + remaining
+    const top = document.createElement("div")
+    top.className = "debt-top"
+
+    const nameDiv = document.createElement("div")
+    nameDiv.className = "debt-name"
+    nameDiv.style.color = d.color
+    nameDiv.textContent = d.name
+
+    const rightDiv = document.createElement("div")
+    rightDiv.style.cssText = "display:flex;align-items:center;gap:8px;"
+
+    const pctDiv = document.createElement("div")
+    pctDiv.className = "debt-pct"
+    pctDiv.style.color = d.color
+    pctDiv.textContent = Math.round(pct) + "%"
+
+    const remDiv = document.createElement("div")
+    remDiv.className = "debt-rem"
+    remDiv.textContent = cleared ? "CLEARED" : fmt(rem) + " left"
+
+    rightDiv.appendChild(pctDiv)
+    rightDiv.appendChild(remDiv)
+    top.appendChild(nameDiv)
+    top.appendChild(rightDiv)
+    el.appendChild(top)
+
+    // Progress bar
+    const track = document.createElement("div")
+    track.className = "bar-track"
+    const fill = document.createElement("div")
+    fill.className = "bar-fill"
+    fill.id = "df-" + idx
+    fill.style.cssText = "background:" + d.color + ";width:0;box-shadow:0 0 6px " + d.color + "55;transition:width 1s ease;"
+    track.appendChild(fill)
+    el.appendChild(track)
+
+    // Payoff date row
+    const meta = document.createElement("div")
+    meta.style.cssText = "display:flex;justify-content:space-between;margin-top:5px;font-size:10px;color:var(--text3);"
+    meta.innerHTML = "<span>" + Math.round(pct) + "% paid</span><span style='color:" + (cleared ? "var(--green)" : "var(--text3)") + ";font-weight:" + (cleared ? "700" : "400") + "'>clears " + payoffDate + "</span>"
+    el.appendChild(meta)
+
+    // Edit row — basePaid only (manual override for pre-app payments)
+    const editRow = document.createElement("div")
+    editRow.style.cssText = "display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap;"
+
+    const paidLabel = document.createElement("div")
+    paidLabel.style.cssText = "font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;"
+    paidLabel.textContent = "Already paid before app"
+
+    const paidInp = document.createElement("input")
+    paidInp.type = "number"
+    paidInp.inputMode = "decimal"
+    paidInp.id = "debt-paid-" + d.name.replace(/\s/g,"")
+    paidInp.value = Math.round(d.basePaid||0)
+    paidInp.placeholder = "0"
+    paidInp.style.cssText = "width:90px;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.1);border-radius:8px;color:#f5f5f7;font-size:14px;padding:5px 8px;font-family:inherit;outline:none;text-align:right;"
+    paidInp.addEventListener("change", (function(i){ return function() {
+      S.debts[i].basePaid = parseFloat(this.value)||0
+      syncDebtsFromObligations()
+      renderDebts()
+      autoSave()
+    } })(idx))
+    paidInp.addEventListener("focus", function(){ this.style.borderColor="rgba(50,215,75,.4)" })
+    paidInp.addEventListener("blur", function(){ this.style.borderColor="rgba(255,255,255,.1)" })
+
+    const hint = document.createElement("div")
+    hint.style.cssText = "font-size:10px;color:var(--text3);font-style:italic;"
+    hint.textContent = "Rest auto-tracks from obligations"
+
+    editRow.appendChild(paidLabel)
+    editRow.appendChild(paidInp)
+    editRow.appendChild(hint)
+    el.appendChild(editRow)
+
+    list.appendChild(el)
+    setTimeout(function() {
+      const f = document.getElementById("df-" + idx)
+      if(f) f.style.width = pct + "%"
+    }, 100 + idx * 80)
+  })
+
+  // Update Jason pill in topbar
+  var jason = S.debts.find(function(d){ return d.name === "Jason" })
+  var pill = document.getElementById("jasonPill")
+  if(jason && pill) {
+    var rem = Math.max(jason.total - jason.paid, 0)
+    pill.textContent = "Jason " + fmt(rem)
+  }
 }
 
 // ─────────────────────────────────────────
@@ -1235,9 +1409,94 @@ function buildMonths() {
 function rebuildBody(i) {
   const body=document.getElementById("mb-"+i); if(!body) return
   const wasOpen=body.classList.contains("open"); body.innerHTML=""
-  buildSection(body,i,"income"); buildSection(body,i,"obligations")
+  buildSection(body,i,"income")
+  buildSection(body,i,"obligations")
+  buildInvestmentSection(body,i)
   const nr=document.createElement("div"); nr.className="net-row"; nr.id="net-"+i; body.appendChild(nr)
   if(wasOpen) body.classList.add("open"); updateNets()
+}
+
+function buildInvestmentSection(body, i) {
+  if(!S.investments) S.investments = [[],[],[],[]]
+  if(!S.investments[i]) S.investments[i] = []
+  var arr = S.investments[i]
+
+  var sh = document.createElement("div"); sh.className = "sec-hdr"
+  var sl = document.createElement("div"); sl.className = "sec-label"
+  sl.style.color = "var(--purple)"; sl.textContent = "📈 Investments"
+  var ab = document.createElement("button"); ab.className = "add-row-btn"; ab.textContent = "+ Add"
+  ab.addEventListener("click", function(e){
+    e.stopPropagation()
+    arr.push({name:"New deal", deployed:0, principal:0, profit:0, returnDate:""})
+    rebuildBody(i); updateSummaryOnly(); autoSave()
+  })
+  sh.appendChild(sl); sh.appendChild(ab); body.appendChild(sh)
+
+  if(arr.length === 0) {
+    var empty = document.createElement("div")
+    empty.style.cssText = "font-size:11px;color:var(--text3);padding:6px 0;font-style:italic;"
+    empty.textContent = "No investments this month"
+    body.appendChild(empty)
+    return
+  }
+
+  arr.forEach(function(inv, j) {
+    var card = document.createElement("div")
+    card.style.cssText = "background:rgba(191,90,242,.04);border:.5px solid rgba(191,90,242,.15);border-radius:12px;padding:10px 12px;margin-bottom:8px;"
+    card.animation = "fadeUp .2s ease"
+
+    // Row 1: Name + delete
+    var row1 = document.createElement("div")
+    row1.style.cssText = "display:flex;align-items:center;gap:6px;margin-bottom:8px;"
+    var rm = document.createElement("button"); rm.className = "rm-btn"; rm.textContent = "×"
+    rm.addEventListener("click", function(e){
+      e.stopPropagation(); arr.splice(j,1); rebuildBody(i); updateSummaryOnly(); autoSave()
+    })
+    var nameInp = document.createElement("input"); nameInp.className = "field-label"
+    nameInp.type = "text"; nameInp.value = inv.name||""; nameInp.placeholder = "Deal name (e.g. Walmart, Pokémon)"
+    nameInp.style.cssText = "flex:1;font-size:14px;font-weight:600;color:var(--purple);background:transparent;border:none;outline:none;font-family:inherit;"
+    nameInp.addEventListener("change", function(){ arr[j].name=this.value; autoSave() })
+    nameInp.addEventListener("click", function(e){ e.stopPropagation() })
+    row1.appendChild(rm); row1.appendChild(nameInp); card.appendChild(row1)
+
+    // Row 2: Three fields
+    var row2 = document.createElement("div")
+    row2.style.cssText = "display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;"
+
+    function makeInvField(label, color, key, val) {
+      var wrap = document.createElement("div")
+      var lbl = document.createElement("div")
+      lbl.style.cssText = "font-size:9px;font-weight:700;color:"+color+";text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;"
+      lbl.textContent = label
+      var inp = document.createElement("input")
+      inp.type = "number"; inp.inputMode = "decimal"; inp.value = val||0
+      inp.style.cssText = "width:100%;background:rgba(255,255,255,.04);border:.5px solid "+color+"44;border-radius:8px;color:#f5f5f7;font-size:14px;padding:5px 7px;font-family:inherit;outline:none;text-align:right;"
+      inp.addEventListener("change", (function(k){ return function(){
+        arr[j][k] = parseFloat(this.value)||0
+        updateSummaryOnly(); autoSave()
+      } })(key))
+      inp.addEventListener("click", function(e){ e.stopPropagation() })
+      inp.addEventListener("focus", function(){ this.style.borderColor=color })
+      inp.addEventListener("blur", function(){ this.style.borderColor=color+"44" })
+      wrap.appendChild(lbl); wrap.appendChild(inp); return wrap
+    }
+
+    // Deployed (out — orange), Principal return (green), Profit (purple/teal)
+    row2.appendChild(makeInvField("Deployed $", "#ff9f0a", "deployed", inv.deployed))
+    row2.appendChild(makeInvField("Principal back $", "#32d74b", "principal", inv.principal))
+    row2.appendChild(makeInvField("Profit $", "#bf5af2", "profit", inv.profit))
+
+    card.appendChild(row2)
+
+    // Row 3: Summary line
+    var summary = document.createElement("div")
+    summary.style.cssText = "display:flex;justify-content:space-between;margin-top:8px;font-size:11px;"
+    var roi = inv.deployed > 0 ? Math.round(((inv.profit)/(inv.deployed))*100) : 0
+    summary.innerHTML = '<span style="color:var(--text3)">ROI: <span style="color:var(--purple);font-weight:700">'+roi+'%</span></span>' +
+      '<span style="color:var(--text3)">Returns: <span style="color:var(--green);font-weight:700">'+fmt(inv.principal)+'</span> + <span style="color:var(--purple);font-weight:700">'+fmt(inv.profit)+'</span></span>'
+    card.appendChild(summary)
+    body.appendChild(card)
+  })
 }
 
 function buildSection(body,i,type) {
@@ -1262,12 +1521,40 @@ function buildSection(body,i,type) {
   })
 }
 
+function syncDebtsFromObligations() {
+  if(!S.debts) return
+
+  S.debts.forEach(function(d) {
+    var keyword = d.name.toLowerCase().split(" ")[0]
+    var totalFromObligations = 0
+
+    // Sum all obligation rows that match this debt name
+    S.obligations.forEach(function(monthObls) {
+      monthObls.forEach(function(obl) {
+        if((obl.label||"").toLowerCase().includes(keyword)) {
+          totalFromObligations += parseFloat(obl.val) || 0
+        }
+      })
+    })
+
+    // basePaid = already paid before app + ongoing obligations
+    d.paid = Math.min((d.basePaid || 0) + totalFromObligations, d.total)
+
+    // Update the input in the DOM if visible
+    var inp = document.getElementById("debt-paid-" + d.name.replace(/\s/g,""))
+    if(inp) inp.value = Math.round(d.paid)
+  })
+}
+
 function updateSummaryOnly() {
   const ti=MONTHS.reduce((s,_,i)=>s+mIn(i),0), to=MONTHS.reduce((s,_,i)=>s+mOut(i),0), n=ti-to, bals=runBal()
   setNum("heroNet",n); setNum("statIn",ti); setNum("statOut",to); setNum("statBal",bals[3])
   document.getElementById("heroNet").className="hero-amount "+(n>=0?"pos":"neg")
   document.getElementById("statBal").style.color=bals[3]>=0?"var(--blue)":"var(--red)"
   renderBalance(); renderChart(); updateNets()
+  // Auto-sync debt payoff when monthly obligations change
+  syncDebtsFromObligations()
+  renderDebts()
 }
 
 function updateNets() {
