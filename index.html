@@ -878,12 +878,20 @@ function getMonthBadges(i) {
 
 function fmt(n) { return (n<0?"-$":"$") + Math.abs(Math.round(n)).toLocaleString() }
 function mIn(i) {
-  var income = S.income[i].reduce(function(s,x){ return s+(parseFloat(x.val)||0) }, 0)
-  var invReturns = (S.investments&&S.investments[i]||[]).reduce(function(s,x){ return s+(parseFloat(x.principal)||0)+(parseFloat(x.profit)||0) }, 0)
-  return income + invReturns
+  try {
+    var income = (S.income&&S.income[i]||[]).reduce(function(s,x){ return s+(parseFloat(x.val)||0) }, 0)
+    var invReturns = (S.investments&&S.investments[i]||[]).reduce(function(s,x){ return s+(parseFloat(x.principal)||0)+(parseFloat(x.profit)||0) }, 0)
+    return income + invReturns
+  } catch(e) { return 0 }
 }
-function mOut(i) { return S.obligations[i].reduce(function(s,x){ return s+(parseFloat(x.val)||0) }, 0) }
-function mInv(i) { return (S.investments&&S.investments[i]||[]).reduce(function(s,x){ return s+(parseFloat(x.deployed)||0) }, 0) }
+function mOut(i) {
+  try { return (S.obligations&&S.obligations[i]||[]).reduce(function(s,x){ return s+(parseFloat(x.val)||0) }, 0) }
+  catch(e) { return 0 }
+}
+function mInv(i) {
+  try { return (S.investments&&S.investments[i]||[]).reduce(function(s,x){ return s+(parseFloat(x.deployed)||0) }, 0) }
+  catch(e) { return 0 }
+}
 function mNet(i) { return mIn(i) - mOut(i) }
 function runBal() { let b=0; return MONTHS.map((_,i) => { b+=mNet(i); return b }) }
 
@@ -1393,6 +1401,9 @@ function renderDebts() {
 // MONTHLY BREAKDOWN
 // ─────────────────────────────────────────
 function buildMonths() {
+  // Make sure investments array exists
+  if(!S.investments) S.investments = [[],[],[],[]]
+  while(S.investments.length < 4) S.investments.push([])
   const wrap=document.getElementById("monthsWrap"); wrap.innerHTML=""
   MONTHS.forEach((month,i)=>{
     const net=mNet(i), item=document.createElement("div")
