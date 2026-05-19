@@ -602,7 +602,7 @@ const DEFAULT = {
 }
 
 let S = JSON.parse(JSON.stringify(DEFAULT))  // live state
-let AKEY = "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"
+let AKEY = ""
 let saveTimer = null
 let localVersion = 0
 let aiHistory = []
@@ -616,7 +616,19 @@ async function init() {
       dbGet("cashflow","key=eq.state&select=value"),
       dbGet("settings","key=eq.anthropic_key&select=value")
     ])
-    console.log("✅ API key ready, starts with:", AKEY.substring(0,20))
+    // Load API key from Supabase settings
+    if(keyRows && keyRows[0]) {
+      let raw = keyRows[0].value
+      // Supabase jsonb returns strings with surrounding quotes - strip them
+      if(typeof raw === 'string') {
+        AKEY = raw.replace(/^"|"$/g, '').trim()
+      } else if(typeof raw === 'object') {
+        AKEY = JSON.stringify(raw).replace(/^"|"$/g, '').trim()
+      }
+      console.log("✅ API key loaded from Supabase, starts with:", AKEY.substring(0,20))
+    } else {
+      console.warn("⚠️ No API key found in settings table")
+    }
 
     if(stateRows && stateRows[0] && stateRows[0].value) {
       const saved = stateRows[0].value
