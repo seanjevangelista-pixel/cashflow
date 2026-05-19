@@ -553,7 +553,7 @@ async function dbSave(data) {
 
 async function dbGetSettings() {
   try {
-    const rows = await dbGet("settings","key=eq.anthropic_key&select=value")
+    const rows = await dbGet("settings","key=eq.anthropic_key")
     return rows && rows[0] ? rows[0].value : ""
   } catch(e) { return "" }
 }
@@ -617,17 +617,23 @@ async function init() {
       dbGet("settings","key=eq.anthropic_key&select=value")
     ])
     // Load API key from Supabase settings
+    console.log("Settings rows:", JSON.stringify(keyRows))
     if(keyRows && keyRows[0]) {
-      let raw = keyRows[0].value
-      // Supabase jsonb returns strings with surrounding quotes - strip them
+      const row = keyRows[0]
+      // Try every possible field
+      let raw = row.value || row.val || row.data || Object.values(row)[0] || ""
       if(typeof raw === 'string') {
         AKEY = raw.replace(/^"|"$/g, '').trim()
-      } else if(typeof raw === 'object') {
+      } else if(typeof raw === 'object' && raw !== null) {
         AKEY = JSON.stringify(raw).replace(/^"|"$/g, '').trim()
       }
-      console.log("✅ API key loaded from Supabase, starts with:", AKEY.substring(0,20))
+      if(AKEY) {
+        console.log("✅ API key loaded, starts with:", AKEY.substring(0,20))
+      } else {
+        console.warn("⚠️ Row found but key empty:", JSON.stringify(row))
+      }
     } else {
-      console.warn("⚠️ No API key found in settings table")
+      console.warn("⚠️ No rows returned from settings table")
     }
 
     if(stateRows && stateRows[0] && stateRows[0].value) {
