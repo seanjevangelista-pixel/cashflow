@@ -361,7 +361,16 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px;
   <!-- TIMELINE -->
   <div class="page" id="page-timeline">
     <div class="sec-title" style="margin-top:4px">Income Timeline</div>
-    <div class="card"><div class="tl" id="tlList"></div></div>
+
+    <!-- Timeline tabs -->
+    <div style="display:flex;gap:4px;background:rgba(255,255,255,.03);border:.5px solid rgba(255,255,255,.08);border-radius:14px;padding:4px;margin-bottom:14px;">
+      <button id="tltab-all" onclick="switchTlTab('all')" style="flex:1;padding:8px;border-radius:10px;border:none;background:rgba(10,132,255,.15);color:#0a84ff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;">All</button>
+      <button id="tltab-pending" onclick="switchTlTab('pending')" style="flex:1;padding:8px;border-radius:10px;border:none;background:transparent;color:#3a3a3c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;">Pending</button>
+      <button id="tltab-paid" onclick="switchTlTab('paid')" style="flex:1;padding:8px;border-radius:10px;border:none;background:transparent;color:#3a3a3c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;">Received</button>
+      <button id="tltab-removed" onclick="switchTlTab('removed')" style="flex:1;padding:8px;border-radius:10px;border:none;background:transparent;color:#3a3a3c;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;">Removed</button>
+    </div>
+
+    <div class="card" id="tlCard"><div class="tl" id="tlList"></div></div>
     <div class="sec-title">Expense Log</div>
     <div id="expSummary" class="exp-summary"></div>
     <div class="card">
@@ -505,6 +514,8 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px;
     <button onclick="document.getElementById('cmdInput').value=this.textContent" style="font-size:10px;padding:4px 10px;border-radius:20px;border:.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#666;cursor:pointer;font-family:inherit;">add May income draw 1500</button>
     <button onclick="document.getElementById('cmdInput').value=this.textContent" style="font-size:10px;padding:4px 10px;border-radius:20px;border:.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#666;cursor:pointer;font-family:inherit;">remove May income draw</button>
     <button onclick="document.getElementById('cmdInput').value=this.textContent" style="font-size:10px;padding:4px 10px;border-radius:20px;border:.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#666;cursor:pointer;font-family:inherit;">clear May income</button>
+    <button onclick="document.getElementById('cmdInput').value=this.textContent" style="font-size:10px;padding:4px 10px;border-radius:20px;border:.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#666;cursor:pointer;font-family:inherit;">pay Jason 1500</button>
+    <button onclick="document.getElementById('cmdInput').value=this.textContent" style="font-size:10px;padding:4px 10px;border-radius:20px;border:.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#666;cursor:pointer;font-family:inherit;">pay Anthony 500</button>
     <button onclick="document.getElementById('cmdInput').value=this.textContent" style="font-size:10px;padding:4px 10px;border-radius:20px;border:.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#666;cursor:pointer;font-family:inherit;">set May income Juan 7300</button>
   </div>
 </div>
@@ -665,7 +676,7 @@ async function init() {
       const saved = stateRows[0].value
       console.log("✅ Loaded from Supabase, version:", saved._v, "| pending:", (saved.pending||[]).length)
       // Merge saved data into state
-      const keys = ["income","obligations","pending","goals","expenses","reinvestments","notes","open","_v"]
+      const keys = ["income","obligations","pending","goals","expenses","reinvestments","notes","open","debts","tlEvents","_v"]
       keys.forEach(k => { if(saved[k] !== undefined) S[k] = saved[k] })
       localVersion = saved._v || 0
       setSave("synced")
@@ -744,7 +755,7 @@ async function pollSync() {
     if(rv > localVersion) {
       console.log("📥 Remote is newer:", rv, "vs local:", localVersion)
       localVersion = rv
-      const keys = ["income","obligations","pending","goals","expenses","reinvestments","notes","open"]
+      const keys = ["income","obligations","pending","goals","expenses","reinvestments","notes","open","debts","tlEvents"]
       keys.forEach(k => { if(remote[k] !== undefined) S[k] = remote[k] })
       renderAll(false)
       toast("↓ Synced from other device","green")
@@ -841,6 +852,7 @@ function renderAll(animate) {
   renderExpenseSummary()
   renderReinvestments()
   renderScenario()
+  renderTimeline()
 }
 
 // ─────────────────────────────────────────
@@ -1186,7 +1198,14 @@ function renderChart() {
 // ─────────────────────────────────────────
 function renderDebts() {
   const list=document.getElementById("debtList"); list.innerHTML=""
-  const debts=[{name:"Beto",total:3380,paid:3380,color:"#ffd60a",cleared:"Jul 2026"},{name:"Kris",total:3000,paid:3000,color:"#bf5af2",cleared:"Jul 2026"},{name:"Anthony V",total:4250,paid:2000,color:"#0a84ff",cleared:"Jan 2027"},{name:"Jason",total:73050,paid:21550,color:"#ff453a",cleared:"~2 years"}]
+  // Use state.debts so payments persist and update
+  if(!S.debts) S.debts=[
+    {name:"Beto",total:3380,paid:3380,color:"#ffd60a",cleared:"Jul 2026"},
+    {name:"Kris",total:3000,paid:3000,color:"#bf5af2",cleared:"Jul 2026"},
+    {name:"Anthony V",total:4250,paid:2000,color:"#0a84ff",cleared:"Jan 2027"},
+    {name:"Jason",total:73050,paid:21550,color:"#ff453a",cleared:"~2 years"}
+  ]
+  const debts = S.debts
   debts.forEach((d,idx)=>{
     const pct=Math.min((d.paid/d.total)*100,100), rem=Math.max(d.total-d.paid,0)
     const el=document.createElement("div"); el.className="debt-item"
@@ -1351,10 +1370,157 @@ function addReinvest() {
 // ─────────────────────────────────────────
 // TIMELINE
 // ─────────────────────────────────────────
+// Timeline state
+var tlFilter = "all"
+
+function switchTlTab(tab) {
+  tlFilter = tab
+  const tabs = ["all","pending","paid","removed"]
+  tabs.forEach(function(t) {
+    const btn = document.getElementById("tltab-"+t)
+    if(!btn) return
+    if(t === tab) {
+      btn.style.background = "rgba(10,132,255,.15)"
+      btn.style.color = "#0a84ff"
+    } else {
+      btn.style.background = "transparent"
+      btn.style.color = "#3a3a3c"
+    }
+  })
+  renderTimeline()
+}
+
 function renderTimeline() {
-  const list=document.getElementById("tlList"); if(!list) return; list.innerHTML=""
-  const events=[{date:"May 25",name:"Juan payouts",amount:7300,cls:"tl-g"},{date:"Jun 1",name:"$16,670 draw #2",amount:1500,cls:"tl-b"},{date:"Jun 10",name:"Juan reinvest return",amount:6000,cls:"tl-g"},{date:"Jul 1",name:"$16,670 draw #3 + profit",amount:4670,cls:"tl-g"},{date:"Jul 25",name:"$9k reinvestment out",amount:-9000,cls:"tl-o"},{date:"Aug 1",name:"$27k installment #1",amount:3000,cls:"tl-p"},{date:"Aug 15",name:"Kris full payout",amount:4000,cls:"tl-g"},{date:"Sep 1",name:"$27k installment #2",amount:4000,cls:"tl-p"},{date:"Oct 1",name:"$27k installment #3",amount:3000,cls:"tl-p"},{date:"Nov 1",name:"$27k installment #4",amount:6000,cls:"tl-p"},{date:"Dec 1",name:"$27k installment #5 (final)",amount:11000,cls:"tl-p"}]
-  events.forEach(e=>{const el=document.createElement("div");el.className="tl-item "+e.cls;el.innerHTML='<div class="tl-date">'+e.date+'</div><div class="tl-name">'+e.name+'</div><div class="tl-amount '+(e.amount>=0?"pos":"neg")+'">'+fmt(e.amount)+'</div>';list.appendChild(el)})
+  const list = document.getElementById("tlList")
+  if(!list) return
+  list.innerHTML = ""
+
+  // Initialize timeline events in state if not present
+  if(!S.tlEvents) S.tlEvents = [
+    {id:1, date:"2026-05-25", name:"Juan May payouts", amount:7300, type:"income", status:"pending"},
+    {id:2, date:"2026-06-01", name:"$16,670 draw #2", amount:1500, type:"income", status:"pending"},
+    {id:3, date:"2026-06-10", name:"Juan reinvest return", amount:6000, type:"income", status:"pending"},
+    {id:4, date:"2026-07-01", name:"$16,670 draw #3 + profit", amount:4670, type:"income", status:"pending"},
+    {id:5, date:"2026-07-25", name:"$9k reinvestment out", amount:-9000, type:"reinvest", status:"pending"},
+    {id:6, date:"2026-08-01", name:"$27k installment #1", amount:3000, type:"income", status:"pending"},
+    {id:7, date:"2026-08-15", name:"Kris full payout", amount:4000, type:"income", status:"pending"},
+    {id:8, date:"2026-09-01", name:"$27k installment #2", amount:4000, type:"income", status:"pending"},
+    {id:9, date:"2026-10-01", name:"$27k installment #3", amount:3000, type:"income", status:"pending"},
+    {id:10, date:"2026-11-01", name:"$27k installment #4", amount:6000, type:"income", status:"pending"},
+    {id:11, date:"2026-12-01", name:"$27k installment #5 (final)", amount:11000, type:"income", status:"pending"}
+  ]
+
+  // Filter events
+  var events = S.tlEvents
+  if(tlFilter === "pending") events = S.tlEvents.filter(function(e){ return e.status === "pending" })
+  if(tlFilter === "paid") events = S.tlEvents.filter(function(e){ return e.status === "paid" })
+  if(tlFilter === "removed") events = S.tlEvents.filter(function(e){ return e.status === "removed" })
+
+  if(!events.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--text3);text-align:center;padding:16px 0;">No ' + tlFilter + ' events.</div>'
+    return
+  }
+
+  // Sort by date
+  events = events.slice().sort(function(a,b){ return new Date(a.date)-new Date(b.date) })
+
+  events.forEach(function(e) {
+    var d = new Date(e.date)
+    var dateStr = d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})
+    var cls = e.type === "reinvest" ? "tl-o" : e.status === "paid" ? "tl-g" : e.status === "removed" ? "" : "tl-b"
+    var statusBadge = ""
+    if(e.status === "paid") statusBadge = '<span style="font-size:9px;padding:2px 8px;border-radius:20px;background:rgba(50,215,75,.1);color:var(--green);border:.5px solid rgba(50,215,75,.2);font-weight:700;margin-left:6px;">✓ Received</span>'
+    if(e.status === "removed") statusBadge = '<span style="font-size:9px;padding:2px 8px;border-radius:20px;background:rgba(255,69,58,.08);color:var(--red);border:.5px solid rgba(255,69,58,.2);font-weight:700;margin-left:6px;">Removed</span>'
+
+    var el = document.createElement("div")
+    el.className = "tl-item " + cls
+    el.style.opacity = e.status === "removed" ? "0.4" : "1"
+
+    var inner = document.createElement("div")
+    inner.style.cssText = "display:flex;justify-content:space-between;align-items:flex-start;"
+
+    var left = document.createElement("div")
+    left.innerHTML = '<div class="tl-date">' + dateStr + statusBadge + '</div>' +
+      '<div class="tl-name">' + e.name + '</div>'
+
+    var right = document.createElement("div")
+    right.style.cssText = "text-align:right;flex-shrink:0;margin-left:12px;"
+
+    var amt = document.createElement("div")
+    amt.className = "tl-amount " + (e.amount >= 0 ? "pos" : "neg")
+    amt.style.textDecoration = e.status === "removed" ? "line-through" : "none"
+    amt.textContent = fmt(e.amount)
+
+    var actions = document.createElement("div")
+    actions.style.cssText = "display:flex;gap:5px;justify-content:flex-end;margin-top:5px;"
+
+    if(e.status === "pending") {
+      var paidBtn = document.createElement("button")
+      paidBtn.textContent = "Received"
+      paidBtn.style.cssText = "font-size:9px;padding:2px 8px;border-radius:20px;border:.5px solid rgba(50,215,75,.3);background:rgba(50,215,75,.06);color:var(--green);cursor:pointer;font-family:inherit;font-weight:700;"
+      paidBtn.onclick = (function(eid){ return function(ev) {
+        ev.stopPropagation()
+        var ev2 = S.tlEvents.find(function(x){ return x.id===eid })
+        if(ev2) { ev2.status="paid"; renderTimeline(); autoSave(); launchConfetti(); toast("💸 "+ev2.name+" received!","green") }
+      } })(e.id)
+
+      var removeBtn = document.createElement("button")
+      removeBtn.textContent = "Remove"
+      removeBtn.style.cssText = "font-size:9px;padding:2px 8px;border-radius:20px;border:.5px solid rgba(255,69,58,.2);background:rgba(255,69,58,.06);color:var(--red);cursor:pointer;font-family:inherit;font-weight:600;"
+      removeBtn.onclick = (function(eid){ return function(ev) {
+        ev.stopPropagation()
+        var ev2 = S.tlEvents.find(function(x){ return x.id===eid })
+        if(ev2) { ev2.status="removed"; renderTimeline(); autoSave(); toast(ev2.name+" removed from timeline","") }
+      } })(e.id)
+
+      actions.appendChild(paidBtn)
+      actions.appendChild(removeBtn)
+    }
+
+    if(e.status === "removed") {
+      var restoreBtn = document.createElement("button")
+      restoreBtn.textContent = "Restore"
+      restoreBtn.style.cssText = "font-size:9px;padding:2px 8px;border-radius:20px;border:.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.04);color:#666;cursor:pointer;font-family:inherit;font-weight:600;"
+      restoreBtn.onclick = (function(eid){ return function(ev) {
+        ev.stopPropagation()
+        var ev2 = S.tlEvents.find(function(x){ return x.id===eid })
+        if(ev2) { ev2.status="pending"; renderTimeline(); autoSave(); toast("Restored: "+ev2.name,"green") }
+      } })(e.id)
+      actions.appendChild(restoreBtn)
+    }
+
+    right.appendChild(amt)
+    right.appendChild(actions)
+    inner.appendChild(left)
+    inner.appendChild(right)
+    el.appendChild(inner)
+    list.appendChild(el)
+  })
+
+  // Check goals against received payments and update progress
+  syncGoalsWithTimeline()
+}
+
+function syncGoalsWithTimeline() {
+  if(!S.tlEvents || !S.goals) return
+  var totalReceived = S.tlEvents
+    .filter(function(e){ return e.status==="paid" && e.amount > 0 })
+    .reduce(function(sum,e){ return sum + e.amount }, 0)
+
+  // Update "emergency fund" or any income-based goal progress
+  S.goals.forEach(function(g) {
+    if(g.name.toLowerCase().includes("emergency") || g.name.toLowerCase().includes("fund")) {
+      // Don't auto-update user-managed goals
+    }
+  })
+
+  // Check if any goal is completed - show celebration
+  S.goals.forEach(function(g) {
+    if(g.current >= g.target && !g.celebrated) {
+      g.celebrated = true
+      toast("🎯 Goal completed: " + g.name + "!","green")
+    }
+  })
 }
 
 // ─────────────────────────────────────────
