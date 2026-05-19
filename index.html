@@ -617,7 +617,13 @@ async function init() {
       dbGet("settings","key=eq.anthropic_key&select=value")
     ])
 
-    if(keyRows && keyRows[0]) AKEY = keyRows[0].value
+    if(keyRows && keyRows[0]) {
+      // Handle both plain string and jsonb string
+      const raw = keyRows[0].value
+      AKEY = typeof raw === 'string' ? raw : JSON.stringify(raw)
+      AKEY = AKEY.replace(/^"|"$/g,'') // strip quotes if jsonb stored as "sk-ant-..."
+      console.log("✅ API key loaded, starts with:", AKEY.substring(0,20))
+    }
 
     if(stateRows && stateRows[0] && stateRows[0].value) {
       const saved = stateRows[0].value
@@ -1422,7 +1428,8 @@ function buildContext() {
 
 async function sendMsg() {
   const inp=document.getElementById("aiInp"), msg=inp.value.trim()
-  if(!msg||!AKEY) return
+  if(!msg) { console.log("No message"); return }
+  if(!AKEY) { console.log("❌ No API key loaded — check settings table"); toast("API key not loaded","red"); return }
   inp.value=""
   const msgs=document.getElementById("aiMsgs")
   const ud=document.createElement("div"); ud.className="amsg user"; ud.textContent=msg; msgs.appendChild(ud)
