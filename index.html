@@ -323,6 +323,16 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px;
       <div class="stat"><div class="stat-label">Balance</div><div class="stat-val" id="statBal" style="color:var(--blue)">—</div></div>
     </div>
     <div class="bal-row" id="balRow"></div>
+    <!-- Progress arc -->
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;padding:13px 16px;background:rgba(255,255,255,.025);border:.5px solid rgba(255,255,255,.07);border-radius:16px;">
+      <canvas id="arcCanvas" width="60" height="60" style="flex-shrink:0;"></canvas>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Plan Progress</div>
+        <div style="font-size:14px;font-weight:700;" id="arcTitle">—</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px;" id="arcSub">May 1 → Aug 31, 2026</div>
+      </div>
+    </div>
+
     <div class="countdown" id="countdown" style="display:none">
       <div><div class="cd-label">Next payout</div><div class="cd-name" id="cdName">—</div><div class="cd-date" id="cdDate">—</div></div>
       <div style="text-align:right"><div class="cd-days" id="cdDays">—</div><div class="cd-days-label">days away</div></div>
@@ -700,6 +710,8 @@ async function init() {
 
   renderAll(true)
   setGreeting()
+renderProgressArc()
+renderCountdown()
   renderTimeline()
   renderPitch()
   runScenario()
@@ -833,45 +845,116 @@ function setGreeting() {
 // MATH
 // ─────────────────────────────────────────
 const MONTHS = ["May","Jun","Jul","Aug"]
-const BADGES_DEFAULT = ["Payout month","Jun milestone","Kris cleared","Reinvest returns"]
-
 function getMonthBadges(i) {
   var badges = []
   var net = mNet(i)
   var allNets = MONTHS.map(function(_,j){ return mNet(j) })
   var maxNet = Math.max.apply(null, allNets)
+  var income = S.income&&S.income[i]||[]
+  var obligations = S.obligations&&S.obligations[i]||[]
+  var investments = S.investments&&S.investments[i]||[]
+  var allIncomeLabels = income.map(function(r){ return (r.label||"").toLowerCase() })
+  var allInvLabels = investments.map(function(r){ return (r.name||"").toLowerCase() })
+  var allLabels = allIncomeLabels.concat(allInvLabels)
 
-  // 💸 Payout month — always show for the default badge
-  if(i === 0) badges.push({text:"💸 Payout month", cls:"tag-g"})
+  // 💸 Payout — any income row with payout/draw/return/payment
+  var hasPayout = allIncomeLabels.some(function(l){
+    return l.includes("payout")||l.includes("draw")||l.includes("return")||l.includes("payment")||l.includes("juan")||l.includes("kris")||l.includes("installment")
+  })
+  if(hasPayout) badges.push({text:"💸 Payout", cls:"tag-g"})
 
   // 👑 Best month
   if(net === maxNet && net > 0) badges.push({text:"👑 Best month", cls:"tag-g"})
 
   // 📈 Investment active
-  if(S.investments && S.investments[i] && S.investments[i].length > 0)
-    badges.push({text:"📈 Invested", cls:"tag-b"})
+  if(investments.length > 0) badges.push({text:"📈 Invested", cls:"tag-b"})
 
-  // 🎉 Debt cleared — check if any debt hits 100% this month
+  // 🎉 Debt cleared this month — check if running obligations cross 100%
   if(S.debts) {
-    S.debts.forEach(function(d){
-      if(d.paid >= d.total && d.total > 0) badges.push({text:"🎉 "+d.name+" cleared", cls:"tag-g"})
+    var paidSoFar = {}
+    for(var m2=0; m2<=i; m2++) {
+      var obs = S.obligations&&S.obligations[m2]||[]
+      obs.forEach(function(obl){
+        S.debts&&S.debts.forEach(function(d){
+          var kw = d.name.toLowerCase().split(" ")[0]
+          if((obl.label||"").toLowerCase().includes(kw)) {
+            paidSoFar[d.name] = (paidSoFar[d.name]||0) + (parseFloat(obl.val)||0)
+          }
+        })
+      })
+    }
+    S.debts&&S.debts.forEach(function(d){
+      var totalPaid = (d.basePaid||0) + (paidSoFar[d.name]||0)
+      var prevPaid = (d.basePaid||0)
+      // Was it cleared this month specifically?
+      for(var m2=0; m2<i; m2++) {
+        var obs = S.obligations&&S.obligations[m2]||[]
+        obs.forEach(function(obl){
+          var kw = d.name.toLowerCase().split(" ")[0]
+          if((obl.label||"").toLowerCase().includes(kw)) prevPaid += parseFloat(obl.val)||0
+        })
+      }
+      if(prevPaid < d.total && totalPaid >= d.total && d.total > 0) {
+        badges.push({text:"🎉 "+d.name+" cleared", cls:"tag-g"})
+      }
     })
   }
 
-  // 🔥 All obligations met — net is positive and no debt obligations
-  var hasObl = S.obligations[i] && S.obligations[i].length > 0
-  if(hasObl && net > 0) badges.push({text:"🔥 Obligations met", cls:"tag-g"})
+  // 🔥 All obligations met
+  if(obligations.length > 0 && net > 0) badges.push({text:"🔥 Obligations met", cls:"tag-g"})
 
-  // 🃏 Custom deal badge — if any income/investment label contains "pokemon" or "deal"
-  var allRows = (S.income[i]||[]).concat(S.investments&&S.investments[i]||[])
-  allRows.forEach(function(r){
-    var label = (r.label||r.name||"").toLowerCase()
-    if(label.includes("pokemon") || label.includes("pokémon")) badges.push({text:"🃏 Pokémon", cls:"tag-p"})
-    if(label.includes("walmart")) badges.push({text:"🏪 Walmart deal", cls:"tag-b"})
+  // 🃏 Pokémon / custom deals
+  allLabels.forEach(function(l){
+    if(l.includes("pokemon")||l.includes("pokémon")) badges.push({text:"🃏 Pokémon", cls:"tag-p"})
+    if(l.includes("walmart")) badges.push({text:"🏪 Walmart", cls:"tag-b"})
+    if(l.includes("deal")) badges.push({text:"🤝 Deal", cls:"tag-b"})
   })
 
-  // Fallback — show default if no badges
-  if(badges.length === 0) badges.push({text:BADGES_DEFAULT[i]||"Month "+MONTHS[i], cls: net>=0?"tag-g":"tag-r"})
+  // 📦 Reinvest — any obligation with "reinvest" or "invest"
+  obligations.forEach(function(r){
+    var l = (r.label||"").toLowerCase()
+    if(l.includes("reinvest")||l.includes("invest")) badges.push({text:"📦 Reinvest", cls:"tag-b"})
+  })
+
+  // 🎯 Goal hit — any goal completed
+  if(S.goals) {
+    S.goals.forEach(function(g){
+      if(g.current >= g.target && g.target > 0) badges.push({text:"🎯 "+g.name, cls:"tag-g"})
+    })
+  }
+
+  // ⚡ 2x return — any investment with 2x+ ROI
+  investments.forEach(function(inv){
+    if(inv.deployed > 0 && (inv.profit/inv.deployed) >= 1) badges.push({text:"⚡ 2x Return", cls:"tag-p"})
+  })
+
+  // 💰 $10k+ month
+  if(net >= 10000) badges.push({text:"💰 $10k+ month", cls:"tag-g"})
+  if(net >= 20000) badges.push({text:"🏆 $20k+ month", cls:"tag-g"})
+
+  // 💯 Debt free — all debts cleared
+  if(S.debts && S.debts.length > 0 && S.debts.every(function(d){ return d.paid >= d.total })) {
+    badges.push({text:"💯 Debt free!", cls:"tag-g"})
+  }
+
+  // 🚀 Record month — highest net ever
+  var allNets2 = MONTHS.map(function(_,j){ return mNet(j) })
+  if(net === Math.max.apply(null,allNets2) && net > 0) badges.push({text:"🚀 Record month", cls:"tag-g"})
+
+  // Fallback
+  if(badges.length === 0) {
+    if(net > 0) badges.push({text:"✓ Positive", cls:"tag-g"})
+    else if(net < 0) badges.push({text:"↓ Deficit", cls:"tag-r"})
+    else badges.push({text:"Breakeven", cls:"tag-b"})
+  }
+
+  // Deduplicate
+  var seen = {}
+  badges = badges.filter(function(b){
+    if(seen[b.text]) return false
+    seen[b.text] = true
+    return true
+  })
 
   return badges
 }
@@ -880,7 +963,23 @@ function fmt(n) { return (n<0?"-$":"$") + Math.abs(Math.round(n)).toLocaleString
 function mIn(i) {
   try {
     var income = (S.income&&S.income[i]||[]).reduce(function(s,x){ return s+(parseFloat(x.val)||0) }, 0)
-    var invReturns = (S.investments&&S.investments[i]||[]).reduce(function(s,x){ return s+(parseFloat(x.principal)||0)+(parseFloat(x.profit)||0) }, 0)
+
+    // Count investment RETURNS in the month they come back (returnDate)
+    // Not necessarily the month they were deployed
+    var monthNum = i + 5 // May=5, Jun=6, Jul=7, Aug=8
+    var invReturns = 0
+    if(S.investments) {
+      S.investments.forEach(function(monthInvs) {
+        (monthInvs||[]).forEach(function(inv) {
+          if(!inv.returnDate) return
+          var retMonth = parseInt(inv.returnDate.split("-")[1]) // "2026-08" -> 8
+          if(retMonth === monthNum) {
+            invReturns += (parseFloat(inv.principal)||0) + (parseFloat(inv.profit)||0)
+          }
+        })
+      })
+    }
+
     return income + invReturns
   } catch(e) { return 0 }
 }
@@ -1128,6 +1227,20 @@ function addPending() {
   document.getElementById("addPendingForm").style.display="none"
   document.getElementById("pName").value=""; document.getElementById("pAmount").value=""; document.getElementById("pNote").value=""
   toast("Payment added","green")
+}
+
+function deletePending(idx) {
+  if(!S.pending) return
+  S.pending.splice(idx, 1)
+  renderPending(); renderCountdown(); autoSave()
+  toast("Payment removed","")
+}
+
+function deleteExpense(idx) {
+  if(!S.expenses) return
+  S.expenses.splice(idx, 1)
+  renderExpenses(); renderExpenseSummary(); autoSave()
+  toast("Expense removed","")
 }
 
 function markReceived(idx) {
@@ -1409,7 +1522,17 @@ function buildMonths() {
     const net=mNet(i), item=document.createElement("div")
     item.className="month-item"+(S.open[i]?" open":""); item.id="mi-"+i
     const hdr=document.createElement("div"); hdr.className="month-hdr"
-    hdr.innerHTML='<div style="display:flex;align-items:center;gap:10px"><div class="month-bar"></div><div class="month-name">'+month+'</div><span class="month-tag '+(net>=0?"tag-g":"tag-r")+'">'+BADGES[i]+'</span></div><div style="display:flex;align-items:center"><span class="month-net '+(net>=0?"pos":"neg")+'" id="hn-'+i+'">'+fmt(net)+'</span><span class="chev" id="ch-'+i+'">▾</span></div>'
+    var monthBadges = []
+    try { monthBadges = getMonthBadges(i) } catch(e) { monthBadges = [{text:net>=0?"✓ Positive":"↓ Negative", cls:net>=0?"tag-g":"tag-r"}] }
+    var badgeHtml = monthBadges.slice(0,2).map(function(b){ return '<span class="month-tag '+b.cls+'">'+b.text+'</span>' }).join(" ")
+    // Payout date estimate
+    var mn2x=i+5
+    var pd2x=(S.pending||[]).filter(function(p){return p.date&&!p.received&&new Date(p.date).getMonth()+1===mn2x}).sort(function(a,b){return new Date(a.date)-new Date(b.date)})
+    var estStr2=""
+    if(pd2x.length>0){var dxx=new Date(pd2x[0].date);estStr2="📅 "+dxx.toLocaleDateString("en-US",{month:"short",day:"numeric"})+" — "+pd2x[0].name}
+    else if(mIn(i)>0){estStr2="📅 Est. "+["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][mn2x]+" 2026"}
+    hdr.id="mhdr-"+i
+    hdr.innerHTML='<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div class="month-bar"></div><div class="month-name">'+month+'</div><span id="mbadges-'+i+'">'+badgeHtml+'</span></div><div id="mestdate-'+i+'" style="font-size:10px;color:var(--text3);margin-top:2px;">'+estStr2+'</div></div><div style="display:flex;align-items:center;flex-shrink:0;margin-left:10px"><span class="month-net '+(net>=0?"pos":"neg")+'" id="hn-'+i+'">'+fmt(net)+'</span><span class="chev" id="ch-'+i+'">▾</span></div>'
     hdr.addEventListener("click",()=>{ S.open[i]=!S.open[i]; document.getElementById("mb-"+i).classList.toggle("open",S.open[i]); item.classList.toggle("open",S.open[i]); autoSave() })
     item.appendChild(hdr)
     const body=document.createElement("div"); body.className="month-body"+(S.open[i]?" open":""); body.id="mb-"+i
@@ -1423,6 +1546,15 @@ function rebuildBody(i) {
   buildSection(body,i,"income")
   buildSection(body,i,"obligations")
   buildInvestmentSection(body,i)
+  // Notes field
+  var noteWrap = document.createElement("div"); noteWrap.style.cssText="margin-top:12px;padding-top:10px;border-top:.5px solid rgba(255,255,255,.06);"
+  var noteInp = document.createElement("textarea"); noteInp.className="note-inp"
+  noteInp.placeholder="Notes for this month..."
+  noteInp.value = S.notes&&S.notes[i]||""
+  noteInp.style.cssText="width:100%;background:rgba(255,255,255,.03);border:.5px solid rgba(255,255,255,.07);border-radius:10px;color:var(--text2);font-size:13px;padding:9px 12px;resize:none;min-height:50px;line-height:1.65;font-family:inherit;outline:none;"
+  noteInp.addEventListener("input",function(){ if(S.notes)S.notes[i]=this.value; autoSave() })
+  noteInp.addEventListener("click",function(e){ e.stopPropagation() })
+  noteWrap.appendChild(noteInp); body.appendChild(noteWrap)
   const nr=document.createElement("div"); nr.className="net-row"; nr.id="net-"+i; body.appendChild(nr)
   if(wasOpen) body.classList.add("open"); updateNets()
 }
@@ -1499,12 +1631,63 @@ function buildInvestmentSection(body, i) {
 
     card.appendChild(row2)
 
-    // Row 3: Summary line
+    // Row 3: Return date
+    var row3 = document.createElement("div")
+    row3.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;"
+
+    var dateWrap = document.createElement("div")
+    var dateLbl = document.createElement("div")
+    dateLbl.style.cssText = "font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;"
+    dateLbl.textContent = "Return Date"
+    var dateInp = document.createElement("input")
+    dateInp.type = "month"
+    dateInp.value = inv.returnDate||""
+    dateInp.style.cssText = "width:100%;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.1);border-radius:8px;color:#f5f5f7;font-size:13px;padding:5px 7px;font-family:inherit;outline:none;"
+    dateInp.addEventListener("change", (function(k){ return function(){
+      arr[j].returnDate = this.value; autoSave()
+    } })("returnDate"))
+    dateInp.addEventListener("click", function(e){ e.stopPropagation() })
+    dateWrap.appendChild(dateLbl); dateWrap.appendChild(dateInp)
+
+    var statusWrap = document.createElement("div")
+    var statusLbl = document.createElement("div")
+    statusLbl.style.cssText = "font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;"
+    statusLbl.textContent = "Status"
+    var statusSel = document.createElement("select")
+    statusSel.style.cssText = "width:100%;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.1);border-radius:8px;color:#f5f5f7;font-size:13px;padding:5px 7px;font-family:inherit;outline:none;"
+    ;["Active","Returned","Pending"].forEach(function(s){
+      var opt = document.createElement("option"); opt.value=s; opt.textContent=s
+      if(inv.status===s) opt.selected=true
+      else if(!inv.status && s==="Active") opt.selected=true
+      statusSel.appendChild(opt)
+    })
+    statusSel.addEventListener("change", function(){ arr[j].status=this.value; rebuildBody(i); autoSave() })
+    statusSel.addEventListener("click", function(e){ e.stopPropagation() })
+    statusWrap.appendChild(statusLbl); statusWrap.appendChild(statusSel)
+
+    row3.appendChild(dateWrap); row3.appendChild(statusWrap); card.appendChild(row3)
+
+    // Row 4: Summary stats
+    var roi = inv.deployed > 0 ? Math.round((inv.profit/inv.deployed)*100) : 0
+    var total = (parseFloat(inv.principal)||0)+(parseFloat(inv.profit)||0)
     var summary = document.createElement("div")
-    summary.style.cssText = "display:flex;justify-content:space-between;margin-top:8px;font-size:11px;"
-    var roi = inv.deployed > 0 ? Math.round(((inv.profit)/(inv.deployed))*100) : 0
-    summary.innerHTML = '<span style="color:var(--text3)">ROI: <span style="color:var(--purple);font-weight:700">'+roi+'%</span></span>' +
-      '<span style="color:var(--text3)">Returns: <span style="color:var(--green);font-weight:700">'+fmt(inv.principal)+'</span> + <span style="color:var(--purple);font-weight:700">'+fmt(inv.profit)+'</span></span>'
+    summary.style.cssText = "background:rgba(255,255,255,.03);border-radius:8px;padding:8px 10px;margin-top:8px;display:flex;justify-content:space-between;align-items:center;"
+    // Figure out which month the return lands in
+    var retMonthName = ""
+    if(inv.returnDate) {
+      var retM = parseInt(inv.returnDate.split("-")[1])
+      var retMNames = ["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+      retMonthName = retMNames[retM]||""
+    }
+    var returnNote = retMonthName ? '<div style="font-size:10px;color:var(--green);margin-bottom:6px;font-weight:600;">↳ Returns land in '+retMonthName+' — adds to that month\'s income</div>' : ""
+
+    summary.innerHTML = returnNote +
+      '<div style="display:flex;justify-content:space-between;align-items:center;">'+
+      '<div><div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">ROI</div><div style="font-size:16px;font-weight:800;color:var(--purple)">'+roi+'%</div></div>'+
+      '<div style="text-align:center"><div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Principal</div><div style="font-size:14px;font-weight:700;color:var(--green)">'+fmt(inv.principal||0)+'</div></div>'+
+      '<div style="text-align:center"><div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Profit</div><div style="font-size:14px;font-weight:700;color:#bf5af2">'+fmt(inv.profit||0)+'</div></div>'+
+      '<div style="text-align:right"><div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Total back</div><div style="font-size:14px;font-weight:700;color:var(--green)">'+fmt(total)+'</div></div>'+
+      '</div>'
     card.appendChild(summary)
     body.appendChild(card)
   })
@@ -1517,19 +1700,149 @@ function buildSection(body,i,type) {
   const ab=document.createElement("button"); ab.className="add-row-btn"; ab.textContent="+ Add"
   ab.addEventListener("click",e=>{ e.stopPropagation(); arr.push({label:"New item",val:0}); rebuildBody(i); updateSummaryOnly(); autoSave() })
   sh.appendChild(sl); sh.appendChild(ab); body.appendChild(sh)
-  arr.forEach((item,j)=>{
+
+  // Regular income/obligation rows
+  arr.forEach(function(item,j){
     const row=document.createElement("div"); row.className="field-row"
     const rm=document.createElement("button"); rm.className="rm-btn"; rm.textContent="×"
-    rm.addEventListener("click",e=>{ e.stopPropagation(); arr.splice(j,1); rebuildBody(i); updateSummaryOnly(); autoSave() })
+    rm.addEventListener("click",function(e){ e.stopPropagation(); arr.splice(j,1); rebuildBody(i); updateSummaryOnly(); autoSave() })
     const li=document.createElement("input"); li.className="field-label"; li.type="text"; li.value=item.label; li.placeholder="Label..."
-    li.addEventListener("change",()=>{ arr[j].label=li.value; autoSave() })
-    li.addEventListener("click",e=>e.stopPropagation())
+    li.addEventListener("change",function(){ arr[j].label=li.value; autoSave() })
+    li.addEventListener("click",function(e){ e.stopPropagation() })
     const vi=document.createElement("input"); vi.className="field-val"; vi.type="number"; vi.inputMode="decimal"; vi.value=Math.round(item.val)
-    vi.addEventListener("change",()=>{ arr[j].val=parseFloat(vi.value)||0; updateSummaryOnly(); autoSave() })
-    vi.addEventListener("blur",()=>{ arr[j].val=parseFloat(vi.value)||0; updateSummaryOnly(); autoSave() })
-    vi.addEventListener("click",e=>e.stopPropagation())
+    vi.addEventListener("change",function(){ arr[j].val=parseFloat(vi.value)||0; updateSummaryOnly(); autoSave() })
+    vi.addEventListener("blur",function(){ arr[j].val=parseFloat(vi.value)||0; updateSummaryOnly(); autoSave() })
+    vi.addEventListener("click",function(e){ e.stopPropagation() })
     row.appendChild(rm); row.appendChild(li); row.appendChild(vi); body.appendChild(row)
   })
+
+  // Show investment returns as special read-only income rows
+  if(isIn && S.investments) {
+    var monthNum = i + 5
+    S.investments.forEach(function(monthInvs, srcMonth) {
+      (monthInvs||[]).forEach(function(inv, invIdx) {
+        if(!inv.returnDate) return
+        var retMonth = parseInt(inv.returnDate.split("-")[1])
+        if(retMonth !== monthNum) return
+        var total = (parseFloat(inv.principal)||0) + (parseFloat(inv.profit)||0)
+        if(total <= 0) return
+
+        var row = document.createElement("div")
+        row.className = "field-row"
+        row.style.cssText = "background:rgba(191,90,242,.06);border:.5px solid rgba(191,90,242,.2);border-radius:8px;padding:4px 6px;margin-bottom:4px;"
+
+        // Investment indicator icon
+        var icon = document.createElement("div")
+        icon.style.cssText = "font-size:12px;flex-shrink:0;"
+        icon.textContent = "📈"
+
+        // Name — shows investment name + source month
+        var nameDiv = document.createElement("div")
+        nameDiv.style.cssText = "flex:1;min-width:0;"
+        var invName = document.createElement("div")
+        invName.style.cssText = "font-size:12px;font-weight:600;color:var(--purple);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+        invName.textContent = (inv.name||"Investment") + " return"
+        var invSub = document.createElement("div")
+        invSub.style.cssText = "font-size:10px;color:var(--text3);margin-top:1px;"
+        invSub.innerHTML = "From " + MONTHS[srcMonth] + " · <span style='color:var(--green)'>" + fmt(inv.principal||0) + " principal</span> + <span style='color:#bf5af2'>" + fmt(inv.profit||0) + " profit</span>"
+        nameDiv.appendChild(invName)
+        nameDiv.appendChild(invSub)
+
+        // Amount
+        var amtDiv = document.createElement("div")
+        amtDiv.style.cssText = "font-size:13px;font-weight:700;color:var(--green);flex-shrink:0;margin-left:8px;"
+        amtDiv.textContent = fmt(total)
+
+        // Delete button
+        var delBtn = document.createElement("button")
+        delBtn.textContent = "✕"
+        delBtn.title = "Remove return from this month"
+        delBtn.style.cssText = "background:none;border:none;color:rgba(255,255,255,.2);cursor:pointer;font-size:12px;padding:2px 4px;border-radius:4px;flex-shrink:0;transition:all .15s;"
+        delBtn.onmouseover = function(){ this.style.color="var(--red)"; this.style.background="rgba(255,69,58,.1)" }
+        delBtn.onmouseout  = function(){ this.style.color="rgba(255,255,255,.2)"; this.style.background="none" }
+        delBtn.onclick = (function(sm, ii, retM){ return function(e){
+          e.stopPropagation()
+          S.investments[sm][ii].returnDate = ""
+          S.investments[sm][ii].status = "Removed"
+          rebuildBody(retM); rebuildBody(sm); updateSummaryOnly(); autoSave()
+          toast("Return removed from " + MONTHS[retM] + " — investment still in " + MONTHS[sm],"")
+        } })(srcMonth, invIdx, i)
+
+        row.appendChild(icon)
+        row.appendChild(nameDiv)
+        row.appendChild(amtDiv)
+        row.appendChild(delBtn)
+        body.appendChild(row)
+
+        // ── Apply to debt row ──
+        if(S.debts && S.debts.length > 0 && total > 0) {
+          var debtRow = document.createElement("div")
+          debtRow.style.cssText = "display:flex;gap:6px;align-items:center;padding:5px 8px 6px 24px;flex-wrap:wrap;"
+
+          var debtLabel = document.createElement("div")
+          debtLabel.style.cssText = "font-size:10px;color:var(--text3);white-space:nowrap;"
+          debtLabel.textContent = "Apply to debt:"
+
+          var debtSel = document.createElement("select")
+          debtSel.style.cssText = "flex:1;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.1);border-radius:8px;color:#f5f5f7;font-size:13px;padding:4px 8px;font-family:inherit;outline:none;min-width:100px;"
+          var noneOpt = document.createElement("option"); noneOpt.value=""; noneOpt.textContent="None"
+          debtSel.appendChild(noneOpt)
+          S.debts.forEach(function(d,di){
+            var rem = Math.max(d.total-d.paid,0)
+            if(rem <= 0) return
+            var opt = document.createElement("option")
+            opt.value = di
+            opt.textContent = d.name + " (" + fmt(rem) + " left)"
+            if(inv.appliedTo === di) opt.selected = true
+            debtSel.appendChild(opt)
+          })
+
+          var amtInp = document.createElement("input")
+          amtInp.type = "number"
+          amtInp.inputMode = "decimal"
+          amtInp.placeholder = "Amount"
+          amtInp.value = inv.appliedAmt||""
+          amtInp.style.cssText = "width:80px;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.1);border-radius:8px;color:#f5f5f7;font-size:13px;padding:4px 8px;font-family:inherit;outline:none;text-align:right;"
+          amtInp.addEventListener("click", function(e){ e.stopPropagation() })
+
+          var applyBtn = document.createElement("button")
+          applyBtn.textContent = "Apply"
+          applyBtn.style.cssText = "font-size:10px;padding:4px 10px;border-radius:20px;border:.5px solid rgba(50,215,75,.3);background:rgba(50,215,75,.07);color:var(--green);cursor:pointer;font-family:inherit;font-weight:700;white-space:nowrap;"
+          applyBtn.onclick = (function(sm, ii){ return function(e){
+            e.stopPropagation()
+            var di = parseInt(debtSel.value)
+            var amt = parseFloat(amtInp.value)||0
+            if(isNaN(di)||!amt) { toast("Pick a debt and enter amount","red"); return }
+            // Apply payment to debt
+            S.debts[di].basePaid = (S.debts[di].basePaid||0) + amt
+            // Record on investment
+            S.investments[sm][ii].appliedTo = di
+            S.investments[sm][ii].appliedAmt = amt
+            syncDebtsFromObligations()
+            renderDebts()
+            rebuildBody(i)
+            autoSave()
+            toast("💸 " + fmt(amt) + " applied to " + S.debts[di].name + " — " + Math.round((S.debts[di].paid/S.debts[di].total)*100) + "% paid","green")
+          } })(srcMonth, invIdx)
+          applyBtn.addEventListener("click", function(e){ e.stopPropagation() })
+
+          debtRow.appendChild(debtLabel)
+          debtRow.appendChild(debtSel)
+          debtRow.appendChild(amtInp)
+          debtRow.appendChild(applyBtn)
+          body.appendChild(debtRow)
+
+          // Show if already applied
+          if(inv.appliedTo !== undefined && inv.appliedAmt > 0 && S.debts[inv.appliedTo]) {
+            var appliedNote = document.createElement("div")
+            appliedNote.style.cssText = "font-size:10px;color:var(--green);padding:0 8px 6px 24px;"
+            appliedNote.textContent = "✓ " + fmt(inv.appliedAmt) + " applied to " + S.debts[inv.appliedTo].name
+            body.appendChild(appliedNote)
+          }
+        }
+      })
+    })
+  }
 }
 
 function syncDebtsFromObligations() {
@@ -1582,12 +1895,34 @@ function updateNets() {
 function renderGoals() {
   const list=document.getElementById("goalsList"); list.innerHTML=""
   if(!S.goals||!S.goals.length){list.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:12px 0">No goals yet.</div>';return}
-  S.goals.forEach((g,i)=>{
-    const pct=Math.min((g.current/g.target)*100,100)
-    const el=document.createElement("div"); el.className="goal-item"
-    el.innerHTML='<div class="goal-top"><div class="goal-name">'+g.name+'</div><div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-weight:700;color:'+g.color+'">'+Math.round(pct)+'%</span><button class="del-btn" onclick="S.goals.splice('+i+',1);renderGoals();autoSave()">✕</button></div></div><div class="bar-track"><div class="bar-fill" id="gf-'+i+'" style="background:'+g.color+';width:0"></div></div><div class="goal-meta"><span>'+fmt(g.current)+' of '+fmt(g.target)+'</span><span>By '+g.deadline+'</span></div>'
+  S.goals.forEach(function(g,i){
+    const pct = Math.min((g.current/g.target)*100, 100)
+    const completed = g.current >= g.target && g.target > 0
+    const el = document.createElement("div"); el.className = "goal-item"
+    el.style.cssText = completed ? "padding:12px;background:rgba(50,215,75,.04);border:.5px solid rgba(50,215,75,.2);border-radius:14px;margin-bottom:8px;" : ""
+
+    var badge = completed ? '<span style="font-size:9px;padding:2px 8px;border-radius:20px;background:rgba(50,215,75,.1);color:var(--green);border:.5px solid rgba(50,215,75,.2);font-weight:700;margin-left:6px;">🎯 Complete!</span>' : ""
+
+    el.innerHTML = '<div class="goal-top"><div class="goal-name">'+g.name+badge+'</div><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:12px;font-weight:700;color:'+g.color+'">'+ Math.round(pct)+'%</span><button class="del-btn" onclick="S.goals.splice('+i+',1);renderGoals();autoSave()">✕</button></div></div><div class="bar-track"><div class="bar-fill" id="gf-'+i+'" style="background:'+g.color+';width:0;"></div></div><div class="goal-meta"><span>'+fmt(g.current)+' of '+fmt(g.target)+'</span><span>By '+g.deadline+'</span></div>'
+
+    // Editable progress
+    var row = document.createElement("div")
+    row.style.cssText = "display:flex;gap:6px;margin-top:8px;align-items:center;"
+    var inp = document.createElement("input")
+    inp.type="number"; inp.inputMode="decimal"; inp.value=g.current; inp.placeholder="Current $"
+    inp.style.cssText="flex:1;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.1);border-radius:8px;color:#f5f5f7;font-size:14px;padding:6px 10px;font-family:inherit;outline:none;"
+    inp.addEventListener("change", (function(idx){ return function(){
+      S.goals[idx].current = parseFloat(this.value)||0
+      renderGoals(); autoSave()
+      if(S.goals[idx].current >= S.goals[idx].target) toast("🎯 Goal complete: "+S.goals[idx].name,"green")
+    } })(i))
+    var lbl = document.createElement("div")
+    lbl.style.cssText = "font-size:10px;color:var(--text3);white-space:nowrap;"
+    lbl.textContent = "Update progress"
+    row.appendChild(inp); row.appendChild(lbl); el.appendChild(row)
+
     list.appendChild(el)
-    setTimeout(()=>{const f=document.getElementById("gf-"+i);if(f)f.style.width=pct+"%"},100+i*60)
+    setTimeout(function(){ const f=document.getElementById("gf-"+i); if(f)f.style.width=pct+"%" }, 100+i*60)
   })
 }
 
@@ -1616,7 +1951,10 @@ function renderExpenses() {
   filtered.slice().reverse().forEach(e=>{
     const color=catColors[e.cat]||"#8e8e93", emoji=e.cat.split(" ")[0]
     const row=document.createElement("div"); row.className="exp-item"
-    row.innerHTML='<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0"><div class="exp-icon" style="background:'+color+'18;border:.5px solid '+color+'33">'+emoji+'</div><div style="min-width:0"><div class="exp-name-text">'+e.name+'</div><div class="exp-date-text">'+e.date+(e.note?' · <span style="font-style:italic">'+e.note+'</span>':'')+'</div></div></div><div style="display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:10px"><div style="font-size:14px;font-weight:700;color:var(--red)">-'+fmt(e.amount)+'</div><button class="del-btn" onclick="S.expenses.splice('+e.origIdx+',1);renderExpenses();renderExpenseSummary();autoSave()">✕</button></div>'
+    var delFn = (function(idx){ return function(ev){ ev.stopPropagation(); deleteExpense(idx) } })(e.origIdx)
+    row.innerHTML='<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0"><div class="exp-icon" style="background:'+color+'18;border:.5px solid '+color+'33">'+emoji+'</div><div style="min-width:0"><div class="exp-name-text">'+e.name+'</div><div class="exp-date-text">'+e.date+(e.note?' · <span style="font-style:italic">'+e.note+'</span>':'')+'</div></div></div><div style="display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:10px"><div style="font-size:14px;font-weight:700;color:var(--red)">-'+fmt(e.amount)+'</div></div>'
+    var xBtn = document.createElement("button"); xBtn.className="del-btn"; xBtn.textContent="✕"; xBtn.onclick=delFn
+    row.querySelector('div:last-child').appendChild(xBtn)
     list.appendChild(row)
   })
 }
@@ -2015,7 +2353,7 @@ function runCmd(){
   }
 
   // REMOVE MONTH INCOME/OBLIGATION: remove May income draw
-  const remM=low.match(/^remove\s+(may|jun|june|jul|july|aug|august)\s+(income|obligation)\s+(.+)/)
+  const remM=low.match(/^remove (may|jun|june|jul|july|aug|august) (income|obligation) (.+)/)
   if(remM){
     const mi=monthMap[remM[1]],type=remM[2]==="income"?"income":"obligations"
     const label=remM[3].trim(),arr=S[type][mi]
@@ -2039,12 +2377,25 @@ function runCmd(){
   }
 
   // CLEAR: clear May income
-  const clrM=low.match(/^clear\s+(may|jun|june|jul|july|aug|august)\s+(income|obligation)/)
+  const clrM=low.match(/^clear (may|jun|june|jul|july|aug|august) (income|obligation)/)
   if(clrM){
     const mi=monthMap[clrM[1]],type=clrM[2]==="income"?"income":"obligations"
     S[type][mi]=[]
     buildMonths();updateSummaryOnly();autoSave()
     ok("Cleared all "+MONTHS2[mi]+" "+type);return
+  }
+
+  // PAY DEBT: pay Jason 3000
+  var payParts=low.split(" ")
+  if(payParts[0]==="pay" && payParts.length>=3){
+    if(!S.debts){err("No debts set up");return}
+    var dName=payParts[1]||""
+    var dAmt=parseFloat((payParts[2]||"0").replace(/,/g,""))||0
+    var debt=S.debts.find(function(d){return d.name.toLowerCase().includes(dName)})
+    if(!debt){err("Could not find debt: "+dName);return}
+    debt.basePaid=(debt.basePaid||0)+dAmt
+    syncDebtsFromObligations();renderDebts();autoSave()
+    ok("Recorded "+fmt(dAmt)+" payment to "+debt.name+" — "+Math.round((debt.paid/debt.total)*100)+"% paid");return
   }
 
   err("Not sure what you mean. Try: add pending Juan 7300 May 25")
