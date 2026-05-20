@@ -1703,17 +1703,56 @@ function buildSection(body,i,type) {
 
   // Regular income/obligation rows
   arr.forEach(function(item,j){
-    const row=document.createElement("div"); row.className="field-row"
+    var wrap = document.createElement("div")
+    wrap.style.cssText = "margin-bottom:6px;"
+    wrap.className = "field-row-wrap"
+
+    // Main row: × | label | amount
+    const row=document.createElement("div"); row.className="field-row"; row.style.marginBottom="2px"
     const rm=document.createElement("button"); rm.className="rm-btn"; rm.textContent="×"
     rm.addEventListener("click",function(e){ e.stopPropagation(); arr.splice(j,1); rebuildBody(i); updateSummaryOnly(); autoSave() })
-    const li=document.createElement("input"); li.className="field-label"; li.type="text"; li.value=item.label; li.placeholder="Label..."
-    li.addEventListener("change",function(){ arr[j].label=li.value; autoSave() })
+    const li=document.createElement("input"); li.className="field-label"; li.type="text"; li.value=item.label||""; li.placeholder="Label..."
+    li.addEventListener("change",function(){ arr[j].label=li.value; autoSave(); syncToTimeline(i) })
     li.addEventListener("click",function(e){ e.stopPropagation() })
-    const vi=document.createElement("input"); vi.className="field-val"; vi.type="number"; vi.inputMode="decimal"; vi.value=Math.round(item.val)
-    vi.addEventListener("change",function(){ arr[j].val=parseFloat(vi.value)||0; updateSummaryOnly(); autoSave() })
+    const vi=document.createElement("input"); vi.className="field-val"; vi.type="number"; vi.inputMode="decimal"; vi.value=Math.round(item.val||0)
+    vi.addEventListener("change",function(){ arr[j].val=parseFloat(vi.value)||0; updateSummaryOnly(); autoSave(); syncToTimeline(i) })
     vi.addEventListener("blur",function(){ arr[j].val=parseFloat(vi.value)||0; updateSummaryOnly(); autoSave() })
     vi.addEventListener("click",function(e){ e.stopPropagation() })
-    row.appendChild(rm); row.appendChild(li); row.appendChild(vi); body.appendChild(row)
+    row.appendChild(rm); row.appendChild(li); row.appendChild(vi)
+    wrap.appendChild(row)
+
+    // Date row — optional payment date
+    var dateRow = document.createElement("div")
+    dateRow.style.cssText = "display:flex;align-items:center;gap:6px;padding-left:22px;margin-bottom:2px;"
+    var dateLbl = document.createElement("div")
+    dateLbl.style.cssText = "font-size:9px;color:var(--text3);white-space:nowrap;"
+    dateLbl.textContent = isIn ? "💰 Expected:" : "📅 Due:"
+    var dateInp = document.createElement("input")
+    dateInp.type = "date"
+    dateInp.value = item.date||""
+    dateInp.style.cssText = "font-size:12px;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.08);border-radius:7px;color:var(--text3);padding:3px 7px;font-family:inherit;outline:none;transition:all .2s;"
+    dateInp.addEventListener("change",function(e){
+      e.stopPropagation()
+      arr[j].date = this.value
+      syncToTimeline(i)
+      autoSave()
+      if(this.value) {
+        this.style.color = isIn ? "var(--green)" : "var(--orange)"
+        this.style.borderColor = isIn ? "rgba(50,215,75,.3)" : "rgba(255,159,10,.3)"
+      } else {
+        this.style.color = "var(--text3)"
+        this.style.borderColor = "rgba(255,255,255,.08)"
+      }
+    })
+    dateInp.addEventListener("click",function(e){ e.stopPropagation() })
+    // Set initial color if date already set
+    if(item.date) {
+      dateInp.style.color = isIn ? "var(--green)" : "var(--orange)"
+      dateInp.style.borderColor = isIn ? "rgba(50,215,75,.3)" : "rgba(255,159,10,.3)"
+    }
+    dateRow.appendChild(dateLbl); dateRow.appendChild(dateInp)
+    wrap.appendChild(dateRow)
+    body.appendChild(wrap)
   })
 
   // Show investment returns as special read-only income rows
@@ -1843,6 +1882,50 @@ function buildSection(body,i,type) {
       })
     })
   }
+}
+
+function syncToTimeline(monthIdx) {
+  // Scan income + obligations for dated entries and add/update in tlEvents
+  if(!S.tlEvents) S.tlEvents = []
+  var nextId = S.tlEvents.reduce(function(m,e){ return Math.max(m,e.id||0) }, 0)
+
+  var types = ["income","obligations"]
+  types.forEach(function(type) {
+    var arr = S[type]&&S[type][monthIdx]||[]
+    arr.forEach(function(item) {
+      if(!item.date || !item.label || !item.val) return
+      var isIn = type === "income"
+      var existingIdx = S.tlEvents.findIndex(function(e){
+        return e.sourceMonth===monthIdx && e.sourceType===type && e.sourceLabel===item.label
+      })
+      var evObj = {
+        id: existingIdx>=0 ? S.tlEvents[existingIdx].id : ++nextId,
+        date: item.date,
+        name: item.label,
+        amount: isIn ? parseFloat(item.val)||0 : -(parseFloat(item.val)||0),
+        type: isIn ? "income" : "obligation",
+        status: existingIdx>=0 ? S.tlEvents[existingIdx].status : "pending",
+        sourceMonth: monthIdx,
+        sourceType: type,
+        sourceLabel: item.label
+      }
+      if(existingIdx >= 0) {
+        S.tlEvents[existingIdx] = evObj
+      } else {
+        S.tlEvents.push(evObj)
+      }
+    })
+  })
+
+  // Remove timeline entries for rows that no longer have dates
+  S.tlEvents = S.tlEvents.filter(function(e) {
+    if(e.sourceMonth === undefined || e.sourceType === undefined) return true // keep manual entries
+    var arr = S[e.sourceType]&&S[e.sourceType][e.sourceMonth]||[]
+    var found = arr.find(function(r){ return r.label===e.sourceLabel && r.date })
+    return !!found
+  })
+
+  renderTimeline()
 }
 
 function syncDebtsFromObligations() {
@@ -2031,111 +2114,137 @@ function renderTimeline() {
   if(!list) return
   list.innerHTML = ""
 
-  // Initialize timeline events in state if not present
-  if(!S.tlEvents) S.tlEvents = [
-    {id:1, date:"2026-05-25", name:"Juan May payouts", amount:7300, type:"income", status:"pending"},
-    {id:2, date:"2026-06-01", name:"$16,670 draw #2", amount:1500, type:"income", status:"pending"},
-    {id:3, date:"2026-06-10", name:"Juan reinvest return", amount:6000, type:"income", status:"pending"},
-    {id:4, date:"2026-07-01", name:"$16,670 draw #3 + profit", amount:4670, type:"income", status:"pending"},
-    {id:5, date:"2026-07-25", name:"$9k reinvestment out", amount:-9000, type:"reinvest", status:"pending"},
-    {id:6, date:"2026-08-01", name:"$27k installment #1", amount:3000, type:"income", status:"pending"},
-    {id:7, date:"2026-08-15", name:"Kris full payout", amount:4000, type:"income", status:"pending"},
-    {id:8, date:"2026-09-01", name:"$27k installment #2", amount:4000, type:"income", status:"pending"},
-    {id:9, date:"2026-10-01", name:"$27k installment #3", amount:3000, type:"income", status:"pending"},
-    {id:10, date:"2026-11-01", name:"$27k installment #4", amount:6000, type:"income", status:"pending"},
-    {id:11, date:"2026-12-01", name:"$27k installment #5 (final)", amount:11000, type:"income", status:"pending"}
-  ]
+  if(!S.tlEvents) S.tlEvents = []
 
-  // Filter events
-  var events = S.tlEvents
-  if(tlFilter === "pending") events = S.tlEvents.filter(function(e){ return e.status === "pending" })
-  if(tlFilter === "paid") events = S.tlEvents.filter(function(e){ return e.status === "paid" })
-  if(tlFilter === "removed") events = S.tlEvents.filter(function(e){ return e.status === "removed" })
+  // Filter by tab
+  var events = S.tlEvents.slice()
+  if(tlFilter === "all") events = events.filter(function(e){ return e.status!=="removed" }) // hide removed from All
+  else if(tlFilter === "pending") events = events.filter(function(e){ return e.status==="pending" })
+  else if(tlFilter === "paid") events = events.filter(function(e){ return e.status==="paid" })
+  else if(tlFilter === "removed") events = events.filter(function(e){ return e.status==="removed" })
 
   if(!events.length) {
-    list.innerHTML = '<div style="font-size:12px;color:var(--text3);text-align:center;padding:16px 0;">No ' + tlFilter + ' events.</div>'
+    list.innerHTML = '<div style="font-size:12px;color:var(--text3);text-align:center;padding:20px 0;">No '+tlFilter+' events.</div>'
     return
   }
 
   // Sort by date
   events = events.slice().sort(function(a,b){ return new Date(a.date)-new Date(b.date) })
 
+  // Group by month
+  var groups = {}
+  var groupOrder = []
   events.forEach(function(e) {
     var d = new Date(e.date)
-    var dateStr = d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})
-    var cls = e.type === "reinvest" ? "tl-o" : e.status === "paid" ? "tl-g" : e.status === "removed" ? "" : "tl-b"
-    var statusBadge = ""
-    if(e.status === "paid") statusBadge = '<span style="font-size:9px;padding:2px 8px;border-radius:20px;background:rgba(50,215,75,.1);color:var(--green);border:.5px solid rgba(50,215,75,.2);font-weight:700;margin-left:6px;">✓ Received</span>'
-    if(e.status === "removed") statusBadge = '<span style="font-size:9px;padding:2px 8px;border-radius:20px;background:rgba(255,69,58,.08);color:var(--red);border:.5px solid rgba(255,69,58,.2);font-weight:700;margin-left:6px;">Removed</span>'
-
-    var el = document.createElement("div")
-    el.className = "tl-item " + cls
-    el.style.opacity = e.status === "removed" ? "0.4" : "1"
-
-    var inner = document.createElement("div")
-    inner.style.cssText = "display:flex;justify-content:space-between;align-items:flex-start;"
-
-    var left = document.createElement("div")
-    left.innerHTML = '<div class="tl-date">' + dateStr + statusBadge + '</div>' +
-      '<div class="tl-name">' + e.name + '</div>'
-
-    var right = document.createElement("div")
-    right.style.cssText = "text-align:right;flex-shrink:0;margin-left:12px;"
-
-    var amt = document.createElement("div")
-    amt.className = "tl-amount " + (e.amount >= 0 ? "pos" : "neg")
-    amt.style.textDecoration = e.status === "removed" ? "line-through" : "none"
-    amt.textContent = fmt(e.amount)
-
-    var actions = document.createElement("div")
-    actions.style.cssText = "display:flex;gap:5px;justify-content:flex-end;margin-top:5px;"
-
-    if(e.status === "pending") {
-      var paidBtn = document.createElement("button")
-      paidBtn.textContent = "Received"
-      paidBtn.style.cssText = "font-size:9px;padding:2px 8px;border-radius:20px;border:.5px solid rgba(50,215,75,.3);background:rgba(50,215,75,.06);color:var(--green);cursor:pointer;font-family:inherit;font-weight:700;"
-      paidBtn.onclick = (function(eid){ return function(ev) {
-        ev.stopPropagation()
-        var ev2 = S.tlEvents.find(function(x){ return x.id===eid })
-        if(ev2) { ev2.status="paid"; renderTimeline(); autoSave(); launchConfetti(); toast("💸 "+ev2.name+" received!","green") }
-      } })(e.id)
-
-      var removeBtn = document.createElement("button")
-      removeBtn.textContent = "Remove"
-      removeBtn.style.cssText = "font-size:9px;padding:2px 8px;border-radius:20px;border:.5px solid rgba(255,69,58,.2);background:rgba(255,69,58,.06);color:var(--red);cursor:pointer;font-family:inherit;font-weight:600;"
-      removeBtn.onclick = (function(eid){ return function(ev) {
-        ev.stopPropagation()
-        var ev2 = S.tlEvents.find(function(x){ return x.id===eid })
-        if(ev2) { ev2.status="removed"; renderTimeline(); autoSave(); toast(ev2.name+" removed from timeline","") }
-      } })(e.id)
-
-      actions.appendChild(paidBtn)
-      actions.appendChild(removeBtn)
-    }
-
-    if(e.status === "removed") {
-      var restoreBtn = document.createElement("button")
-      restoreBtn.textContent = "Restore"
-      restoreBtn.style.cssText = "font-size:9px;padding:2px 8px;border-radius:20px;border:.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.04);color:#666;cursor:pointer;font-family:inherit;font-weight:600;"
-      restoreBtn.onclick = (function(eid){ return function(ev) {
-        ev.stopPropagation()
-        var ev2 = S.tlEvents.find(function(x){ return x.id===eid })
-        if(ev2) { ev2.status="pending"; renderTimeline(); autoSave(); toast("Restored: "+ev2.name,"green") }
-      } })(e.id)
-      actions.appendChild(restoreBtn)
-    }
-
-    right.appendChild(amt)
-    right.appendChild(actions)
-    inner.appendChild(left)
-    inner.appendChild(right)
-    el.appendChild(inner)
-    list.appendChild(el)
+    var key = d.getFullYear()+"-"+(d.getMonth()+1)
+    var label = d.toLocaleDateString("en-US",{month:"long",year:"numeric"})
+    if(!groups[key]) { groups[key]={label:label,events:[]}; groupOrder.push(key) }
+    groups[key].events.push(e)
   })
 
-  // Check goals against received payments and update progress
-  syncGoalsWithTimeline()
+  // Totals for each group
+  groupOrder.forEach(function(key) {
+    var grp = groups[key]
+    var totalIn = grp.events.filter(function(e){return e.amount>0&&e.status!=="removed"}).reduce(function(s,e){return s+e.amount},0)
+    var totalOut = grp.events.filter(function(e){return e.amount<0&&e.status!=="removed"}).reduce(function(s,e){return s+Math.abs(e.amount)},0)
+
+    // Month header
+    var mhdr = document.createElement("div")
+    mhdr.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin:0 0 10px;"
+    var mTitle = document.createElement("div")
+    mTitle.style.cssText = "font-size:13px;font-weight:700;color:var(--text);letter-spacing:-.02em;"
+    mTitle.textContent = grp.label
+    var mTotals = document.createElement("div")
+    mTotals.style.cssText = "display:flex;gap:10px;font-size:11px;"
+    if(totalIn>0) mTotals.innerHTML += '<span style="color:var(--green);font-weight:600;">+'+fmt(totalIn)+'</span>'
+    if(totalOut>0) mTotals.innerHTML += '<span style="color:var(--red);font-weight:600;">-'+fmt(totalOut)+'</span>'
+    mhdr.appendChild(mTitle); mhdr.appendChild(mTotals)
+
+    // Month card
+    var mCard = document.createElement("div")
+    mCard.style.cssText = "background:rgba(255,255,255,.02);border:.5px solid rgba(255,255,255,.07);border-radius:16px;padding:14px;margin-bottom:12px;"
+    mCard.appendChild(mhdr)
+
+    // Event rows inside card
+    grp.events.forEach(function(e) {
+      var d = new Date(e.date)
+      var dayStr = d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})
+      var isIncome = e.amount >= 0
+      var isRemoved = e.status === "removed"
+      var isReceived = e.status === "paid"
+
+      // Type color
+      var typeColor = isRemoved ? "#3a3a3c" : isReceived ? "#32d74b" : e.type==="obligation" ? "#ff9f0a" : e.type==="reinvest" ? "#bf5af2" : "#0a84ff"
+      var typeDot = '<div style="width:8px;height:8px;border-radius:50%;background:'+typeColor+';flex-shrink:0;margin-top:5px;'+(!isRemoved&&!isReceived?'box-shadow:0 0 5px '+typeColor+'88;':'')+'"></div>'
+
+      var eRow = document.createElement("div")
+      eRow.style.cssText = "display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:.5px solid rgba(255,255,255,.04);"+(isRemoved?"opacity:.35;":"")
+      eRow.innerHTML = typeDot
+
+      // Info
+      var info = document.createElement("div"); info.style.cssText="flex:1;min-width:0;"
+      var nameDiv = document.createElement("div"); nameDiv.style.cssText="font-size:13px;font-weight:600;color:"+(isRemoved?"var(--text3)":"var(--text)")+";text-decoration:"+(isRemoved?"line-through":"none")+";"
+      nameDiv.textContent = e.name
+
+      // Sub info
+      var subDiv = document.createElement("div"); subDiv.style.cssText="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;"
+      // Date badge
+      subDiv.innerHTML = '<span style="font-size:10px;color:var(--text3);">📅 '+dayStr+'</span>'
+      // Type badge
+      var tbadge = e.type==="obligation"?"💳 Obligation":e.type==="reinvest"?"🔄 Reinvest":"💰 Income"
+      subDiv.innerHTML += '<span style="font-size:9px;padding:2px 7px;border-radius:20px;background:'+typeColor+'18;color:'+typeColor+';font-weight:700;">'+tbadge+'</span>'
+      // Status badge
+      if(isReceived) subDiv.innerHTML += '<span style="font-size:9px;padding:2px 7px;border-radius:20px;background:rgba(50,215,75,.1);color:var(--green);font-weight:700;">✓ Received</span>'
+      if(isRemoved) subDiv.innerHTML += '<span style="font-size:9px;padding:2px 7px;border-radius:20px;background:rgba(255,69,58,.08);color:var(--red);font-weight:700;">Removed</span>'
+
+      info.appendChild(nameDiv); info.appendChild(subDiv)
+
+      // Amount + actions
+      var right = document.createElement("div"); right.style.cssText="flex-shrink:0;text-align:right;"
+      var amtDiv = document.createElement("div"); amtDiv.style.cssText="font-size:14px;font-weight:700;color:"+(isRemoved?"var(--text3)":isIncome?"var(--green)":"var(--orange)")+";text-decoration:"+(isRemoved?"line-through":"none")+";"
+      amtDiv.textContent = (isIncome?"+":"-")+fmt(Math.abs(e.amount))
+
+      var acts = document.createElement("div"); acts.style.cssText="display:flex;gap:4px;justify-content:flex-end;margin-top:5px;"
+
+      if(e.status==="pending") {
+        var rcvBtn = document.createElement("button")
+        rcvBtn.textContent="✓ Received"
+        rcvBtn.style.cssText="font-size:9px;padding:2px 8px;border-radius:20px;border:.5px solid rgba(50,215,75,.3);background:rgba(50,215,75,.06);color:var(--green);cursor:pointer;font-family:inherit;font-weight:700;"
+        rcvBtn.onclick=(function(eid){return function(ev){ev.stopPropagation();var ev2=S.tlEvents.find(function(x){return x.id===eid});if(ev2){ev2.status="paid";renderTimeline();autoSave();launchConfetti();toast("💸 "+ev2.name+" received!","green")}}})(e.id)
+
+        var rmBtn = document.createElement("button")
+        rmBtn.textContent="✕"
+        rmBtn.style.cssText="font-size:10px;padding:2px 6px;border-radius:20px;border:.5px solid rgba(255,69,58,.2);background:rgba(255,69,58,.06);color:var(--red);cursor:pointer;font-family:inherit;font-weight:600;"
+        rmBtn.onclick=(function(eid){return function(ev){
+          ev.stopPropagation()
+          var idx2=S.tlEvents.findIndex(function(x){return x.id===eid})
+          if(idx2>=0){
+            var removed=S.tlEvents[idx2]
+            // Move to removed instead of splice so it can be restored
+            S.tlEvents[idx2].status="removed"
+            renderTimeline();autoSave()
+            toast(removed.name+" removed — see Removed tab to restore","")
+          }
+        }})(e.id)
+        acts.appendChild(rcvBtn); acts.appendChild(rmBtn)
+      }
+
+      if(e.status==="removed") {
+        var restBtn=document.createElement("button"); restBtn.textContent="Restore"
+        restBtn.style.cssText="font-size:9px;padding:2px 8px;border-radius:20px;border:.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.04);color:#666;cursor:pointer;font-family:inherit;"
+        restBtn.onclick=(function(eid){return function(ev){ev.stopPropagation();var ev2=S.tlEvents.find(function(x){return x.id===eid});if(ev2){ev2.status="pending";renderTimeline();autoSave();toast("Restored: "+ev2.name,"green");}}})(e.id)
+        acts.appendChild(restBtn)
+      }
+
+      right.appendChild(amtDiv); right.appendChild(acts)
+      eRow.appendChild(info); eRow.appendChild(right)
+      mCard.appendChild(eRow)
+    })
+
+    list.appendChild(mCard)
+  })
 }
+
 
 function syncGoalsWithTimeline() {
   if(!S.tlEvents || !S.goals) return
