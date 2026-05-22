@@ -454,7 +454,24 @@ var AKEY='',saveTimer=null,localVersion=0,aiHistory=[],tlFilter='all',firstLoad=
 
 // ═══ SUPABASE ═══
 async function dbGet(t,f){try{var r=await fetch(SB+'/rest/v1/'+t+(f?'?'+f:''),{headers:SH});if(!r.ok)return[];return r.json()}catch(e){return[]}}
-async function dbSave(d){try{var r=await fetch(SB+'/rest/v1/cashflow?key=eq.state',{method:'PATCH',headers:Object.assign({'Prefer':'return=minimal'},SH),body:JSON.stringify({value:d})});if(!r.ok){await fetch(SB+'/rest/v1/cashflow',{method:'POST',headers:Object.assign({'Prefer':'return=minimal'},SH),body:JSON.stringify({key:'state',value:d})})}return true}catch(e){return false}}
+async function dbSave(d){
+  try{
+    // Try upsert first — works whether row exists or not
+    var r=await fetch(SB+'/rest/v1/cashflow',{
+      method:'POST',
+      headers:Object.assign({'Prefer':'resolution=merge-duplicates,return=minimal'},SH),
+      body:JSON.stringify({key:'state',value:d})
+    })
+    if(r.ok)return true
+    // Fallback to PATCH
+    var r2=await fetch(SB+'/rest/v1/cashflow?key=eq.state',{
+      method:'PATCH',
+      headers:Object.assign({'Prefer':'return=minimal'},SH),
+      body:JSON.stringify({value:d})
+    })
+    return r2.ok
+  }catch(e){console.error('Save failed:',e);return false}
+}
 
 // ═══ INIT ═══
 async function init(){
@@ -478,7 +495,13 @@ async function init(){
 }
 
 // ═══ SAVE / SYNC ═══
-async function saveNow(){localVersion=(localVersion||0)+1;S._v=localVersion;var ok=await dbSave(S);setSave(ok?'saved':'error')}
+async function saveNow(){
+  localVersion=(localVersion||0)+1;S._v=localVersion
+  setSave('saving...')
+  var ok=await dbSave(S)
+  console.log(ok?'Saved v'+localVersion:'Save FAILED v'+localVersion)
+  setSave(ok?'saved':'error — check console')
+}
 function autoSave(){clearTimeout(saveTimer);setSave('saving...');saveTimer=setTimeout(saveNow,800)}
 document.addEventListener('visibilitychange',function(){if(document.hidden&&saveTimer){clearTimeout(saveTimer);saveNow()}if(!document.hidden)pollSync()})
 window.addEventListener('pagehide',saveNow)
@@ -1297,4 +1320,3 @@ init()
 </script>
 </body>
 </html>
-
