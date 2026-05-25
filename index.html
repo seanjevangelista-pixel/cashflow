@@ -754,7 +754,7 @@ function renderDebts(){
       er.appendChild(mF('Total $',d.total,'total'));er.appendChild(mF('Pre-paid $',d.basePaid,'basePaid'));er.appendChild(hint);el.appendChild(er)
     }
     list.appendChild(el)
-    setTimeout(function(){var f=document.getElementById('df-'+idx);if(f)f.style.width=pct+'%'},80+filtered.indexOf(d)*70)
+    setTimeout(function(){var f=document.getElementById('df-'+idx);if(f)f.style.width=pct+'%'},80+idx*70)
   })
   var firstActive=S.debts.find(function(d){return d.paid<d.total})
   var pill=document.getElementById('debtPill')
@@ -822,7 +822,8 @@ function rebuildBody(i){
 function buildSection(body,i,type){
   if(!S[type])S[type]=[[],[],[],[]]
   if(!S[type][i])S[type][i]=[]
-  var arr=S[type][i],isIn=type==='income'
+  var monthIdx=i  // capture for closures
+  var arr=S[type][monthIdx],isIn=type==='income'
   var sh=document.createElement('div');sh.className='sec-hdr'
   var sl=document.createElement('div');sl.className='sec-label';sl.style.color=isIn?'var(--green)':'var(--red)';sl.textContent=isIn?'Income':'Obligations'
   var ab=document.createElement('button');ab.className='add-row-btn';ab.textContent='+ Add'
